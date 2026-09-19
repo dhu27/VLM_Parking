@@ -261,11 +261,12 @@ function parseLimit(v) {
   return Math.round(+m[1] * (m[2] && m[2][0] === 'h' ? 60 : 1));
 }
 function addPanel(p) {
+  const fresh = !p;
   p = p || {rule:'no_parking', days: DAYS.slice(), start:null, end:null};
   const el = $('#paneltpl').content.firstElementChild.cloneNode(true);
   el.querySelector('.rule').value = p.rule;
   el.querySelector('.start').value = p.start || ''; el.querySelector('.end').value = p.end || '';
-  el.querySelector('.allday').checked = !p.start;
+  el.querySelector('.allday').checked = !fresh && !p.start;  // new cards start unticked; saved all-day panels stay ticked
   el.querySelector('.limit').value = p.limit_min ?? ''; el.querySelector('.district').value = p.district ?? '';
   el.querySelector('.holidays').checked = !!p.except_holidays; el.querySelector('.tow').checked = !!p.tow_away;
   const days = el.querySelector('.days'); const on = new Set(p.days || []);
