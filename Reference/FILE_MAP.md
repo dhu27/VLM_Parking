@@ -46,7 +46,7 @@ What every file and folder in this repo is for. Folders full of one kind of file
 | `phase0_survey.py` | Runs the pre-screen on a sample of images in each target area, without downloading images, and prints a per-area yield table. Writes `data/phase0/survey/`. | `uv run python scripts/phase0_survey.py` |
 | `phase0_probe.py` | Builds a ~100-image review sample for the Phase 0 go/no-go notebook: pre-screened (`--prescreen`) or random baseline. Downloads the images and their detections. | `uv run python scripts/phase0_probe.py --area koreatown --prescreen` |
 | `collect.py` | **The Phase 1 collection pipeline.** Five resumable stages per area: `screen` (detections for up to `--n-screen` images; keep ones with a big sign) → `crop` (download 2048-px thumbnails, merge stacks, crop, OCR) → `dedup` (drop clear non-parking signs; collapse repeat views of one sign; keep your triaged crops as representatives) → `final` (full-resolution crops from the originals + `candidates.csv`; by default only OCR-confirmed or already-triaged signs, `--all-ocr` for everything) → `sheets` (contact sheets). | `uv run python scripts/collect.py --areas koreatown` |
-| `label.py` | **Phase 3 labeling tool** (browser). Transcribe each accepted sign into the schema panel by panel, reject with a reason code, and check any query against the form with the evaluator. Gold set is blind; `--set assisted` pre-fills from `data/labels/prefill/`; `--round 2` hides round-1 labels for the self-consistency re-label. | `uv run python scripts/label.py` → http://localhost:8766 |
+| `label.py` | **Phase 3 labeling tool** (browser). Every sign in the accepted cohort is labeled by hand, blind: transcribe it panel by panel or reject it with a reason code, and check any query against the form with the evaluator. Queue: the stratified gold sample first, then the rest, most promising first (OCR-confirmed, more panels, larger). `--round 2` hides round-1 labels for the self-consistency re-label. | `uv run python scripts/label.py` → http://localhost:8766 |
 | `triage.py` | Local browser tool for accept / maybe / reject triage of the collected crops (OCR-confirmed only; `--all` for everything). Saves decisions to `data/collect/triage.csv` after every page. | `uv run python scripts/triage.py` → http://localhost:8765 |
 
 ## `tests/`
@@ -99,7 +99,6 @@ Run all with `uv run pytest`.
 | Path | Contains |
 |---|---|
 | 🟢 `labels.sqlite` | **All sign labels.** Table `labels`: one row per (sign, round) with status (labeled / rejected), reject reason, the sign as schema JSON, provenance, seconds spent, timestamp. Table `history`: every save, append-only. |
-| 🟢 `gold_set.csv` | The 100 gold-set signs (seeded draw from accepted signs: 40 one-panel, 35 two-panel, 25 three-plus), labeled blind. |
-| `prefill/` | (Later) pre-fill JSON from the labeler model, one file per sign, for assisted labeling. |
+| 🟢 `gold_set.csv` | The first 100 signs labeled: a seeded, stratified draw from round-1 accepts (40 one-panel, 35 two-panel, 25 three-plus); 72 remain in the cohort. Every later label is also manual. |
 
 Areas: `westwood`, `koreatown`, `downtown`, `hollywood`, `venice_mar_vista` (boxes defined in `prescreen.py`).

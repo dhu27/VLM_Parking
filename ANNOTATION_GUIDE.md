@@ -2,7 +2,7 @@
 
 How to transcribe an LA parking sign into the structured schema in [`src/vlm_parking/schema.py`](src/vlm_parking/schema.py). Decide every case with these rules, and never deviate. When a new kind of case comes up, add a rule here *before* continuing.
 
-This guide is also the system prompt for the pre-fill labeler model, so it's written to be followed literally.
+Every sign is labeled by hand, blind (no model pre-fill). The guide is written to be followed literally.
 
 ---
 

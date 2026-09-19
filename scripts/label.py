@@ -1,7 +1,7 @@
 """Sign labeling tool (Phase 3): transcribe accepted signs into the schema, in the browser.
 
-    uv run python scripts/label.py                 # gold set, blind (no pre-fill)
-    uv run python scripts/label.py --set assisted  # the rest, pre-filled from data/labels/prefill/<id>.json
+    uv run python scripts/label.py                 # every triage-accepted sign, by hand, blind (the default)
+    uv run python scripts/label.py --set assisted  # (unused) pre-filled from data/labels/prefill/<id>.json
     uv run python scripts/label.py --round 2       # blind re-label for self-consistency (hides round 1)
 
 Then open http://localhost:8766. Follow ANNOTATION_GUIDE.md.
@@ -13,8 +13,9 @@ Then open http://localhost:8766. Follow ANNOTATION_GUIDE.md.
   + = add panel. Cmd/Ctrl+Enter saves from anywhere.
 
 Saved to data/labels/labels.sqlite: one row per (sign, round) plus an append-only history, with
-provenance, time spent, and a timestamp. The gold set (100 accepted signs stratified by detected
-panel count) is drawn once, with a fixed seed, into data/labels/gold_set.csv.
+provenance, time spent, and a timestamp. All labels are manual ("gold_manual"): model-assisted labeling was
+dropped because manual labeling is fast (~23 s per labeled sign). The first 100 in the queue are the original
+stratified sample in data/labels/gold_set.csv, drawn once with a fixed seed.
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from pathlib import Path
 import pandas as pd
 from pydantic import ValidationError
 
+from vlm_parking import dataset
 from vlm_parking.evaluator import evaluate
 from vlm_parking.schema import Query, Sign
 
@@ -49,10 +51,7 @@ ARGS: argparse.Namespace
 
 
 def accepted_candidates() -> pd.DataFrame:
-    cands = pd.concat([pd.read_csv(p) for p in sorted(COLLECT.glob("*/candidates.csv"))], ignore_index=True)
-    triage = pd.read_csv(COLLECT / "triage.csv")
-    accepted = set(triage.loc[triage.decision == "accept", "candidate_id"])
-    return cands[cands.candidate_id.isin(accepted)].reset_index(drop=True)
+    return dataset.accepted_candidates(COLLECT)  # triage accept AND OCR-confirmed parking text
 
 
 def stratum(n_panels: int) -> str:
@@ -77,12 +76,21 @@ def ensure_gold_set(seed: int = 0) -> pd.DataFrame:
 
 
 def queue() -> pd.DataFrame:
+    """Every sign accepted in triage, labeled by hand (all labels are gold).
+
+    The original stratified 100 come first (in their fixed order), then the rest, most promising first:
+    OCR-confirmed parking text, then more detected panels, then larger signs. In the gold sample, OCR-confirmed
+    signs were fully transcribable 39% of the time vs 7% for OCR-unknown, so the tail is mostly quick rejects;
+    it is still labeled, so hard-to-read signs aren't excluded. Signs accepted in later triage rounds appear on reload.
+    """
     acc = accepted_candidates()
-    gold_ids = list(ensure_gold_set().candidate_id)
-    if ARGS.set == "gold":
-        return acc.set_index("candidate_id").loc[gold_ids].reset_index()
-    rest = acc[~acc.candidate_id.isin(gold_ids)]
-    return rest.sort_values(["area", "candidate_id"]).reset_index(drop=True)
+    gold_ids = [c for c in ensure_gold_set().candidate_id if c in set(acc.candidate_id)]
+    rest = acc[~acc.candidate_id.isin(gold_ids)].assign(_p=lambda d: d.ocr_status.eq("parking"))
+    rest = rest.sort_values(["_p", "n_panels_detected", "height_native", "candidate_id"], ascending=[False, False, False, True])
+    ordered = pd.concat([acc.set_index("candidate_id").loc[gold_ids].reset_index(), rest.drop(columns="_p")])
+    if ARGS.set == "assisted":  # kept for completeness; not used (all labeling is manual)
+        return ordered[~ordered.candidate_id.isin(gold_ids)].reset_index(drop=True)
+    return ordered.reset_index(drop=True)
 
 
 def db() -> sqlite3.Connection:
@@ -402,7 +410,7 @@ document.addEventListener('keydown', e => {
 (async () => {
   const s = await (await fetch('/api/state')).json();
   items = s.items; done = s.done;
-  $('#setinfo').textContent = `${s.set} set · round ${s.round}${s.set === 'gold' ? ' · blind, no pre-fill' : ''}`;
+  $('#setinfo').textContent = `${s.set === 'gold' ? 'all accepted signs · manual, blind' : 'assisted (pre-filled)'} · round ${s.round}`;
   const first = items.findIndex(it => !done[it.candidate_id]);
   show(first === -1 ? 0 : first);
 })();
