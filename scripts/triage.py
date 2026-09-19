@@ -2,9 +2,9 @@
 
     uv run python scripts/triage.py            # then open http://localhost:8765
 
-Shows a page of crops (likely parking signs first). Click a crop to reject it, click again for
-"maybe", once more to clear. Press Enter (or the button) to accept everything else on the page and
-move on. Decisions are saved to data/collect/triage.csv on every page, so you can stop any time.
+Shows a page of crops (likely parking signs first). Click a crop to toggle reject; shift-click or
+right-click for "maybe". X rejects the whole page (then click the good ones back), C clears it.
+Press Enter (or the button) to accept everything unmarked on the page and move on. Decisions are saved to data/collect/triage.csv on every page, so you can stop any time.
 """
 
 from __future__ import annotations
@@ -78,9 +78,11 @@ PAGE = r"""<!doctype html>
   <b>Sign triage</b>
   <select id="area"><option value="">All areas</option></select>
   <span class="stats" id="stats"></span>
-  <button class="primary" id="next">Accept rest &amp; next page ⏎</button>
+  <button class="primary" id="next">Accept unmarked &amp; next page ⏎</button>
+  <button id="rejectall">Reject all (X)</button>
+  <button id="clearall">Clear all (C)</button>
   <button id="undo">Back one page</button>
-  <div class="help">Click = reject · click again = maybe (legible? unsure) · again = clear · ⏎ accepts every unmarked crop on this page.
+  <div class="help">Click = toggle reject · shift-click / right-click = maybe (legible? unsure) · X = reject whole page, then click the good ones back · C = clear page · ⏎ accepts every unmarked crop.
   Accept only signs that are parking-related <i>and</i> look fully transcribable; "maybe" if you'd need the full image to decide.</div>
 </header>
 <div id="grid"></div><div id="done">All crops in this view are triaged. 🎉</div>
@@ -109,14 +111,16 @@ function render() {
     const t = document.createElement('div'); t.className = 'tile'; t.dataset.id = c.candidate_id; t.dataset.state = '';
     t.innerHTML = `<span class="badge"></span><img loading="lazy" src="/${c.crop_path}" alt="">
       <div class="meta"><span>${c.area} · ${c.n_panels_detected}p · ${c.year}</span><a href="${c.source_url}" target="_blank" onclick="event.stopPropagation()">full ↗</a></div>`;
-    t.onclick = () => {
-      const next = {'': 'reject', 'reject': 'maybe', 'maybe': ''}[t.dataset.state];
-      t.dataset.state = next; t.className = 'tile ' + next; t.querySelector('.badge').textContent = next;
-    };
+    t.onclick = e => setState(t, e.shiftKey ? (t.dataset.state === 'maybe' ? '' : 'maybe') : (t.dataset.state ? '' : 'reject'));
+    t.oncontextmenu = e => { e.preventDefault(); setState(t, t.dataset.state === 'maybe' ? '' : 'maybe'); };
     $('#grid').appendChild(t);
   }
   stats(); window.scrollTo(0, 0);
 }
+function setState(t, state) {
+  t.dataset.state = state; t.className = 'tile ' + state; t.querySelector('.badge').textContent = state;
+}
+function setAll(state) { document.querySelectorAll('.tile').forEach(t => setState(t, state)); }
 async function commit() {
   if (!page.length) return;
   const batch = [...document.querySelectorAll('.tile')].map(t => ({candidate_id: t.dataset.id, decision: t.dataset.state || 'accept'}));
@@ -132,7 +136,13 @@ async function undo() {
   render();
 }
 $('#next').onclick = commit; $('#undo').onclick = undo; $('#area').onchange = render;
-document.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+$('#rejectall').onclick = () => setAll('reject'); $('#clearall').onclick = () => setAll('');
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT') return;
+  if (e.key === 'Enter') { e.preventDefault(); commit(); }
+  else if (e.key === 'x' || e.key === 'X') setAll('reject');
+  else if (e.key === 'c' || e.key === 'C') setAll('');
+});
 load();
 </script></body></html>
 """

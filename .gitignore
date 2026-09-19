@@ -49,3 +49,7 @@ data/collect/**/thumb_crops/
 
 # Phase 0 probe outputs (regenerable; numbers go in the README instead)
 data/phase0/
+
+# Phase 1 intermediates (regenerable); keep only triage.csv and <area>/candidates.csv
+data/collect/**/dedup.csv
+data/collect/sheets/
