@@ -222,8 +222,11 @@ def stage_dedup(area: str) -> pd.DataFrame:
 # --- stage 4: full-resolution crops ---------------------------------------------------------------
 
 
-def stage_final(client: MapillaryClient, area: str, workers: int) -> None:
+def stage_final(client: MapillaryClient, area: str, workers: int, ocr_parking_only: bool = True) -> None:
     best = pd.read_csv(ROOT / area / "dedup.csv", dtype={"image_id": str})
+    if ocr_parking_only:
+        # only OCR-confirmed signs are triaged now; keep anything already triaged so no decision is orphaned
+        best = best[best.status.eq("parking") | best.triaged.astype(bool)]
     screened = {r["id"]: r for r in read_jsonl(ROOT / area / "screened.jsonl")}
     out_dir = ROOT / "crops" / area
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -316,6 +319,7 @@ def main() -> None:
     ap.add_argument("--workers", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--root", type=Path, default=ROOT)
+    ap.add_argument("--all-ocr", action="store_true", help="also download full-res crops for OCR-unknown signs")
     args = ap.parse_args()
 
     ROOT = args.root
@@ -329,7 +333,7 @@ def main() -> None:
         if "dedup" in args.stages:
             stage_dedup(area)
         if "final" in args.stages:
-            stage_final(client, area, args.workers)
+            stage_final(client, area, args.workers, not args.all_ocr)
         if "sheets" in args.stages:
             stage_sheets(area)
     summary = []
