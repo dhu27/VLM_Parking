@@ -2,7 +2,7 @@
 
     uv run python scripts/triage.py            # then open http://localhost:8765
 
-Shows a page of crops (likely parking signs first). Click a crop to toggle reject; shift-click or
+Shows a page of crops whose OCR text reads as a parking sign (--all to include the rest), largest stacks first. Click a crop to toggle reject; shift-click or
 right-click for "maybe". X rejects the whole page (then click the good ones back), C clears it.
 Press Enter (or the button) to accept everything unmarked on the page and move on. Decisions are saved to data/collect/triage.csv on every page, so you can stop any time.
 """
@@ -20,6 +20,9 @@ import pandas as pd
 
 ROOT = Path("data/collect")
 DECISIONS = ROOT / "triage.csv"
+# Only crops whose OCR text reads as parking are triaged (decision 2026-09-19): OCR-unknown crops were ~20%
+# of accepts but only ~7% of those survived labeling. Pass --all to include them.
+OCR_PARKING_ONLY = True
 
 
 def load_candidates() -> list[dict]:
@@ -27,6 +30,8 @@ def load_candidates() -> list[dict]:
     if not frames:
         return []
     df = pd.concat(frames, ignore_index=True)
+    if OCR_PARKING_ONLY:
+        df = df[df.ocr_status.eq("parking")]
     df["_p"] = df.ocr_status.eq("parking")
     df = df.sort_values(["_p", "n_panels_detected", "height_native"], ascending=False)
     cols = ["candidate_id", "area", "crop_path", "source_url", "n_panels_detected", "height_native", "ocr_status", "year"]
@@ -75,7 +80,7 @@ PAGE = r"""<!doctype html>
   #done { padding:40px 16px; font-size:16px; display:none; }
 </style></head><body>
 <header>
-  <b>Sign triage</b>
+  <b>Sign triage</b><span class="stats">OCR-confirmed parking crops only</span>
   <select id="area"><option value="">All areas</option></select>
   <span class="stats" id="stats"></span>
   <button class="primary" id="next">Accept unmarked &amp; next page ⏎</button>
@@ -201,8 +206,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--root", type=Path, default=ROOT)
+    ap.add_argument("--all", action="store_true", help="also show crops OCR couldn't read as parking")
     args = ap.parse_args()
-    ROOT, DECISIONS = args.root, args.root / "triage.csv"
+    global OCR_PARKING_ONLY
+    ROOT, DECISIONS, OCR_PARKING_ONLY = args.root, args.root / "triage.csv", not args.all
     print(f"Triage at http://localhost:{args.port}  (Ctrl-C to stop; decisions in {DECISIONS})")
     ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
 
