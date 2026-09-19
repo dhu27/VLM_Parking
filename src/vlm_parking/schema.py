@@ -65,15 +65,15 @@ class Panel(BaseModel):
     @model_validator(mode="after")
     def _consistent(self) -> Panel:
         if (self.start is None) != (self.end is None):
-            raise ValueError("start and end must both be set or both be null")
+            raise ValueError("fill in both Start and End, or tick all day")
         if self.start is not None and self.start == self.end:
-            raise ValueError("start == end is ambiguous; use null/null for all day")
+            raise ValueError("Start equals End; tick all day instead")
         if self.start == "24:00":
             raise ValueError("start cannot be 24:00; use 00:00")
         if self.rule == "time_limited" and self.limit_min is None:
-            raise ValueError("time_limited needs limit_min")
+            raise ValueError("a time_limited panel needs Limit (min), e.g. 120 for 2 HOUR PARKING")
         if self.rule == "permit_only" and not self.district:
-            raise ValueError("permit_only needs district")
+            raise ValueError("a permit_only panel needs a District")
         return self
 
 

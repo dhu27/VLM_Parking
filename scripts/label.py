@@ -163,6 +163,7 @@ PAGE = r"""<!doctype html>
   #evalout { font-size:13px; margin-top:6px; }
   .kbd { font-size:11px; color:var(--muted); }
   .hidden { display:none; }
+  .card.error { border-color:var(--bad); box-shadow:0 0 0 2px color-mix(in srgb, var(--bad) 30%, transparent); }
 </style></head><body>
 <header>
   <b>Sign labeling</b><span class="muted" id="setinfo"></span>
@@ -254,6 +255,11 @@ function normTime(v, isEnd) {
   return String(h).padStart(2,'0') + ':' + String(mi).padStart(2,'0');
 }
 
+function parseLimit(v) {
+  const m = (v || '').trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(h|hr|hrs|hour|hours|m|min|mins|minute|minutes)?$/);
+  if (!m) return v.trim() ? NaN : null;
+  return Math.round(+m[1] * (m[2] && m[2][0] === 'h' ? 60 : 1));
+}
 function addPanel(p) {
   p = p || {rule:'no_parking', days: DAYS.slice(), start:null, end:null};
   const el = $('#paneltpl').content.firstElementChild.cloneNode(true);
@@ -276,6 +282,7 @@ function addPanel(p) {
   el.querySelector('.allday').onchange = sync;
   el.querySelector('.start').onblur = e => { e.target.value = normTime(e.target.value, false); if (e.target.value) { el.querySelector('.allday').checked = false; sync(); } };
   el.querySelector('.end').onblur = e => { e.target.value = normTime(e.target.value, true); };
+  el.querySelector('.limit').onblur = e => { const n = parseLimit(e.target.value); if (Number.isFinite(n)) e.target.value = n; };
   el.querySelector('.del').onclick = () => { el.remove(); retitle(); };
   el.querySelector('.up').onclick = () => { if (el.previousElementSibling) el.parentNode.insertBefore(el, el.previousElementSibling); retitle(); };
   el.querySelector('.down').onclick = () => { if (el.nextElementSibling) el.parentNode.insertBefore(el.nextElementSibling, el); retitle(); };
@@ -292,7 +299,7 @@ function formSign() {
       days: [...el.querySelectorAll('.days [data-day].on')].map(b => b.dataset.day),
       start: allday ? null : (normTime(el.querySelector('.start').value, false) || null),
       end: allday ? null : (normTime(el.querySelector('.end').value, true) || null),
-      limit_min: lim ? Number(lim) : null, district: dist || null,
+      limit_min: parseLimit(lim), district: dist || null,
       except_holidays: el.querySelector('.holidays').checked, tow_away: el.querySelector('.tow').checked,
     };
   });
@@ -335,6 +342,19 @@ $('#img').onload = applyZoom; $('#zoom').oninput = applyZoom; window.onresize = 
 document.addEventListener('visibilitychange', () => { if (document.hidden) { elapsed += Date.now() - t0; } else { t0 = Date.now(); } });
 const seconds = () => (elapsed + (Date.now() - t0)) / 1000;
 
+const FIELD_NAMES = {limit_min: 'Limit (min)', start: 'Start', end: 'End', days: 'Days', district: 'District', rule: 'Rule'};
+function showErrors(target, errors, prefix) {
+  document.querySelectorAll('.panel.error').forEach(el => el.classList.remove('error'));
+  const panels = document.querySelectorAll('.panel');
+  const lines = errors.map(msg => {
+    const m = msg.match(/^panels\.(\d+)(?:\.(\w+))?: (?:Value error, )?(.*)$/);
+    if (!m) return msg.replace(/^Value error, /, '');
+    panels[+m[1]]?.classList.add('error');
+    const field = m[2] ? ` (${FIELD_NAMES[m[2]] || m[2]})` : '';
+    return `Panel ${m[1]}${field}: ${m[3]}`;
+  });
+  target.innerHTML = '<span style="color:var(--bad)">' + (prefix || '') + lines.join('<br>') + '</span>';
+}
 async function post(url, body) {
   const r = await fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
   return r.json();
@@ -345,7 +365,7 @@ function nextUndone() {
 }
 async function save() {
   const it = items[idx], r = await post('/api/save', {candidate_id: it.candidate_id, sign: formSign(), seconds: seconds()});
-  if (!r.ok) { $('#errors').textContent = 'Not saved:\n' + r.errors.join('\n'); return; }
+  if (!r.ok) { showErrors($('#errors'), r.errors, 'Not saved:<br>'); return; }
   done[it.candidate_id] = {status: 'labeled', sign: r.sign}; show(nextUndone());
 }
 async function reject() {
@@ -361,7 +381,8 @@ async function check() {
   const r = await post('/api/evaluate', {sign: formSign(), query: q});
   $('#evalout').innerHTML = r.ok
     ? `<b>${r.verdict.verdict.toUpperCase()}</b>${r.verdict.governing_panel !== null ? ' · governing panel ' + r.verdict.governing_panel : ''} — ${r.verdict.reason}`
-    : '<span style="color:var(--bad)">' + r.errors.join('<br>') + '</span>';
+    : '';
+  if (!r.ok) showErrors($('#evalout'), r.errors);
 }
 
 $('#addpanel').onclick = () => addPanel(); $('#save').onclick = save; $('#reject').onclick = reject; $('#evalbtn').onclick = check;
