@@ -2,7 +2,7 @@
 
 What every file and folder in this repo is for. Folders full of one kind of file (e.g. sign images) are described once, not file by file.
 
-**Git:** 🟢 = tracked in git · ⚪ = ignored (local only, regenerable). Under `data/`, only `data/collect/triage.csv` and `data/collect/<area>/candidates.csv` are committed; images are never committed.
+**Git:** 🟢 = tracked in git · ⚪ = ignored (local only, regenerable). Under `data/`, only `data/collect/triage.csv`, `data/collect/<area>/candidates.csv`, and `data/labels/` (labels database + gold set) are committed; images are never committed.
 
 ---
 
@@ -45,6 +45,7 @@ What every file and folder in this repo is for. Folders full of one kind of file
 | `phase0_survey.py` | Runs the pre-screen on a sample of images in each target area, without downloading images, and prints a per-area yield table. Writes `data/phase0/survey/`. | `uv run python scripts/phase0_survey.py` |
 | `phase0_probe.py` | Builds a ~100-image review sample for the Phase 0 go/no-go notebook: pre-screened (`--prescreen`) or random baseline. Downloads the images and their detections. | `uv run python scripts/phase0_probe.py --area koreatown --prescreen` |
 | `collect.py` | **The Phase 1 collection pipeline.** Five resumable stages per area: `screen` (detections for up to `--n-screen` images; keep ones with a big sign) → `crop` (download 2048-px thumbnails, merge stacks, crop, OCR) → `dedup` (drop clear non-parking signs; collapse repeat views of one sign; keep your triaged crops as representatives) → `final` (full-resolution crops from the originals + `candidates.csv`) → `sheets` (contact sheets). | `uv run python scripts/collect.py --areas koreatown` |
+| `label.py` | **Phase 3 labeling tool** (browser). Transcribe each accepted sign into the schema panel by panel, reject with a reason code, and check any query against the form with the evaluator. Gold set is blind; `--set assisted` pre-fills from `data/labels/prefill/`; `--round 2` hides round-1 labels for the self-consistency re-label. | `uv run python scripts/label.py` → http://localhost:8766 |
 | `triage.py` | Local browser tool for accept / maybe / reject triage of the collected crops. Saves decisions to `data/collect/triage.csv` after every page. | `uv run python scripts/triage.py` → http://localhost:8765 |
 
 ## `tests/`
@@ -67,7 +68,7 @@ Run all with `uv run pytest`.
 
 ---
 
-## `data/` — local only, except the two CSVs marked 🟢
+## `data/` — local only, except the files marked 🟢
 
 ### `data/phase0/` — Phase 0 exploration
 
@@ -91,5 +92,13 @@ Run all with `uv run pytest`.
 | `<area>/thumb_crops/` | **Low-res parking-sign crops** (from 2048-px thumbnails), every stack including duplicates, named `<image_id>_<k>.jpg`. Working copies used for OCR and duplicate detection; safe to delete once the dataset is final. |
 | `crops/<area>/` | **Full-resolution parking-sign crops**, one JPEG per unique candidate sign, named `<image_id>_<k>.jpg`. These are what you triage and what the models will see. |
 | `sheets/<area>/` | **Contact sheets**: `sheet_NN.jpg` grids of candidate crops, with `sheet_NN.csv` mapping each tile number to its `candidate_id`. |
+
+### `data/labels/` — Phase 3 labels
+
+| Path | Contains |
+|---|---|
+| 🟢 `labels.sqlite` | **All sign labels.** Table `labels`: one row per (sign, round) with status (labeled / rejected), reject reason, the sign as schema JSON, provenance, seconds spent, timestamp. Table `history`: every save, append-only. |
+| 🟢 `gold_set.csv` | The 100 gold-set signs (seeded draw from accepted signs: 40 one-panel, 35 two-panel, 25 three-plus), labeled blind. |
+| `prefill/` | (Later) pre-fill JSON from the labeler model, one file per sign, for assisted labeling. |
 
 Areas: `westwood`, `koreatown`, `downtown`, `hollywood`, `venice_mar_vista` (boxes defined in `prescreen.py`).

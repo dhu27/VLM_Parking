@@ -53,3 +53,6 @@ data/phase0/
 # Phase 1 intermediates (regenerable); keep only triage.csv and <area>/candidates.csv
 data/collect/**/dedup.csv
 data/collect/sheets/
+
+# Labels are hand work: always track them
+!data/labels/labels.sqlite
