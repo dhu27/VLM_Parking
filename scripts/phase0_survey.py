@@ -1,95 +1,76 @@
-"""Phase 0 area survey: compare Mapillary coverage across the plan's target neighbourhoods without
-downloading images. For each area, report the image population and a legibility proxy: the number
-of large front-facing sign detections per 100 sampled images.
+"""Phase 0 area survey: run the pre-screen (resolution, freeway, sign-detection checks) on a sample
+of images from each target area, without downloading any images, and compare the yield.
 
-    uv run python scripts/phase0_survey.py
+    uv run python scripts/phase0_survey.py                      # all areas
+    uv run python scripts/phase0_survey.py --areas koreatown downtown --n-screen 800
+
+Writes data/phase0/survey/<area>.json (funnel + passing images) and prints a comparison table.
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-from tqdm import tqdm
 
-from phase0_probe import sample_images
-from vlm_parking.mapillary import BBox, MapillaryClient, decode_detection_geometry, ring_bbox
+from vlm_parking.mapillary import BBox, MapillaryClient
+from vlm_parking.prescreen import AREAS, Criteria, load_freeways, screen
 
-# Approximate boxes [VERIFY on a map]; each is (min_lon, min_lat, max_lon, max_lat)
-AREAS = {
-    "westwood": (-118.455, 34.045, -118.435, 34.065),
-    "koreatown": (-118.310, 34.052, -118.290, 34.070),
-    "downtown": (-118.258, 34.035, -118.225, 34.055),  # Historic Core + Arts District
-    "hollywood": (-118.345, 34.088, -118.285, 34.105),  # Hollywood + East Hollywood
-    "venice_mar_vista": (-118.480, 33.985, -118.420, 34.015),
-}
-
-THUMB = 2048  # detection sizes are reported on the 2048-px thumbnail scale, as reviewed in notebook 01
-SIGN = "object--traffic-sign--front"
+OUT = Path("data/phase0/survey")
+CACHE = Path("data/phase0/cache")
 
 
-def sign_heights(client: MapillaryClient, img: dict) -> list[float]:
-    """Heights (px, thumbnail scale) of front-facing sign detections in one image."""
-    w, h = img.get("width") or THUMB, img.get("height") or THUMB
-    scale = THUMB / max(w, h)
-    heights = []
-    for det in client.detections(img["id"]):
-        if det["value"] == SIGN:
-            for ring in decode_detection_geometry(det["geometry"], w, h):
-                x0, y0, x1, y1 = ring_bbox(ring)
-                heights.append((y1 - y0) * scale)
-    return heights
-
-
-def summarize(client: MapillaryClient, images: list[dict], n: int, seed: int) -> dict:
-    sample = sample_images(images, n, per_sequence=2, seed=seed)
-    per_image = [sign_heights(client, img) for img in tqdm(sample, leave=False)]
-    flat = [h for hs in per_image for h in hs]
-    k = len(sample) or 1
-    return {
-        "sampled": len(sample),
-        "signs_per_100": round(100 * len(flat) / k, 1),
-        "median_sign_px": round(float(pd.Series(flat).median()), 1) if flat else None,
-        # images with at least one sign detection this tall: a rough upper bound on "legible sign" images
-        "imgs_with_sign_ge_60px_per_100": round(100 * sum(any(h >= 60 for h in hs) for hs in per_image) / k, 1),
-        "imgs_with_sign_ge_100px_per_100": round(100 * sum(any(h >= 100 for h in hs) for hs in per_image) / k, 1),
-    }
+def area_images(client: MapillaryClient, name: str, refresh: bool) -> list[dict]:
+    """All image records in an area, cached on disk (thumbnail URLs in the cache expire; metadata doesn't)."""
+    path = CACHE / f"{name}_images.json"
+    if path.exists() and not refresh:
+        return json.loads(path.read_text())
+    images = client.search_images(BBox(*AREAS[name]))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(images))
+    return images
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--n", type=int, default=100)
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--areas", nargs="+", default=list(AREAS), choices=list(AREAS))
+    ap.add_argument("--n-screen", type=int, default=500, help="images per area to fetch detections for")
+    ap.add_argument("--min-sign-px", type=float, default=Criteria.min_sign_px)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--recent-year", type=int, default=2023)
-    ap.add_argument("--out", type=Path, default=Path("data/phase0/survey.json"))
+    ap.add_argument("--refresh", action="store_true", help="re-run the image search instead of using the cache")
     args = ap.parse_args()
 
+    criteria = Criteria(min_sign_px=args.min_sign_px)
     client = MapillaryClient()
+    OUT.mkdir(parents=True, exist_ok=True)
     rows = []
-    for name, box in AREAS.items():
-        print(f"== {name}")
-        images = client.search_images(BBox(*box))
-        year = lambda i: datetime.fromtimestamp(i["captured_at"] / 1000, tz=timezone.utc).year
-        recent = [i for i in images if year(i) >= args.recent_year]
-        base = {
-            "area": name,
-            "images": len(images),
-            "sequences": len({i.get("sequence") for i in images}),
-            "recent_images": len(recent),
-            "recent_sequences": len({i.get("sequence") for i in recent}),
-            "hi_res_share": round(sum(max(i.get("width") or 0, i.get("height") or 0) >= 3000 for i in images) / max(1, len(images)), 2),
-        }
-        for pool_name, pool in [("all", images), (f"{args.recent_year}+", recent)]:
-            rows.append({**base, "pool": pool_name, **summarize(client, pool, args.n, args.seed)})
-            print(json.dumps(rows[-1]))
+    for name in args.areas:
+        print(f"== {name}: searching ...", flush=True)
+        images = area_images(client, name, args.refresh)
+        freeways = load_freeways(BBox(*AREAS[name]))
+        print(f"   {len(images):,} images, {len(freeways)} freeway segments; screening ...", flush=True)
+        funnel, passing, _ = screen(client, images, freeways, criteria, args.n_screen, args.seed)
 
-    args.out.write_text(json.dumps(rows, indent=1))
-    df = pd.DataFrame(rows).set_index(["area", "pool"])
-    pd.set_option("display.width", 200)
-    print(df.to_string())
+        year = lambda i: datetime.fromtimestamp(i["captured_at"] / 1000, tz=timezone.utc).year
+        funnel["passing_2023plus"] = sum(year(i) >= 2023 for i in passing)
+        funnel["passing_median_sign_px"] = (
+            round(float(pd.Series([max(c["height_2048"] for c in i["candidates"]) for i in passing]).median()), 1)
+            if passing else None
+        )
+        (OUT / f"{name}.json").write_text(
+            json.dumps({"area": name, "bbox": AREAS[name], "criteria": dataclasses.asdict(criteria), "funnel": funnel, "passing": passing})
+        )
+        rows.append({"area": name, **funnel})
+        print("   " + json.dumps(funnel), flush=True)
+
+    df = pd.DataFrame(rows).set_index("area")
+    pd.set_option("display.width", 250)
+    print("\n" + df.to_string())
+    df.to_csv(OUT / "summary.csv")
 
 
 if __name__ == "__main__":

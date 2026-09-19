@@ -87,9 +87,12 @@ class MapillaryClient:
         self.max_retries = max_retries
         self.timeout = timeout
 
-    def _get(self, url: str, params: dict | None = None, stream: bool = False) -> requests.Response:
+    def _get(
+        self, url: str, params: dict | None = None, stream: bool = False, max_retries: int | None = None
+    ) -> requests.Response:
         """GET with exponential backoff on rate limits, server errors, and connection failures."""
-        for attempt in range(self.max_retries + 1):
+        max_retries = self.max_retries if max_retries is None else max_retries
+        for attempt in range(max_retries + 1):
             try:
                 resp = self.session.get(url, params=params, timeout=self.timeout, stream=stream)
                 if resp.status_code == 429 or resp.status_code >= 500:
@@ -99,22 +102,31 @@ class MapillaryClient:
             except (requests.ConnectionError, requests.Timeout, requests.HTTPError) as err:
                 status = getattr(err.response, "status_code", None)
                 retryable = status is None or status == 429 or status >= 500
-                if not retryable or attempt == self.max_retries:
+                if not retryable or attempt == max_retries:
                     raise
                 time.sleep(min(60, 2**attempt) + random.random())
         raise AssertionError("unreachable")
 
     def _search(self, endpoint: str, bbox: BBox, fields: list[str], params: dict, step: float) -> list[dict]:
-        """Query every tile of bbox; split any tile that hits the result cap so nothing is silently truncated."""
+        """Query every tile of bbox. A tile that hits the result cap, or keeps failing with server
+        errors (which dense tiles tend to do), is split into quarters so nothing is silently lost."""
         results: dict[str, dict] = {}
         pending = list(bbox.tiles(step))
         while pending:
             tile = pending.pop()
-            data = self._get(
-                f"{GRAPH_URL}/{endpoint}",
-                {**params, "bbox": tile.param(), "fields": ",".join(fields), "limit": MAX_LIMIT},
-            ).json()["data"]
-            if len(data) >= MAX_LIMIT and (tile.max_lon - tile.min_lon) > MIN_TILE_DEG:
+            splittable = (tile.max_lon - tile.min_lon) > MIN_TILE_DEG
+            try:
+                data = self._get(
+                    f"{GRAPH_URL}/{endpoint}",
+                    {**params, "bbox": tile.param(), "fields": ",".join(fields), "limit": MAX_LIMIT},
+                    max_retries=2 if splittable else None,
+                ).json()["data"]
+            except requests.HTTPError as err:
+                if splittable and err.response is not None and err.response.status_code >= 500:
+                    pending.extend(tile.quarters())
+                    continue
+                raise
+            if len(data) >= MAX_LIMIT and splittable:
                 pending.extend(tile.quarters())
                 continue
             for item in data:
@@ -132,6 +144,10 @@ class MapillaryClient:
     ) -> list[dict]:
         """All map features (traffic signs and points) in bbox. filters: e.g. object_values="regulatory--*"."""
         return self._search("map_features", bbox, fields, filters, step)
+
+    def image(self, image_id: str, fields: list[str] = IMAGE_FIELDS) -> dict:
+        """One image's fields; use to refresh expired thumbnail URLs."""
+        return self._get(f"{GRAPH_URL}/{image_id}", {"fields": ",".join(fields)}).json()
 
     def detections(self, image_id: str) -> list[dict]:
         """Object detections for one image; geometry is a base64 vector tile (see decode_detection_geometry)."""

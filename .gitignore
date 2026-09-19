@@ -44,3 +44,8 @@ hf_cache/
 # Large raw API dumps (regenerable with scripts/phase0_*.py)
 data/**/detections.json
 data/**/map_features.json
+*.log
+data/collect/**/thumb_crops/
+
+# Phase 0 probe outputs (regenerable; numbers go in the README instead)
+data/phase0/
