@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 300" width="1100" height="300" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+  </defs>
+  <rect width="1100" height="300" fill="#ffffff"/>
+  <text x="550" y="28" text-anchor="middle" font-size="18" font-weight="bold" fill="#222">One VLM inference request, step by step</text>
+
+  <!-- step boxes: x = 20 + i*180, width 160 -->
+  <!-- 1 preprocessing -->
+  <rect x="20" y="70" width="160" height="100" rx="8" fill="#f4f4f4" stroke="#888" stroke-width="1.5"/>
+  <text x="100" y="95" text-anchor="middle" font-weight="bold" fill="#333">1. Preprocess</text>
+  <text x="100" y="117" text-anchor="middle" font-size="11" fill="#444">resize / tile,</text>
+  <text x="100" y="132" text-anchor="middle" font-size="11" fill="#444">normalize, cut into</text>
+  <text x="100" y="147" text-anchor="middle" font-size="11" fill="#444">patches</text>
+  <text x="100" y="62" text-anchor="middle" font-size="11" font-weight="bold" fill="#888">CPU</text>
+
+  <!-- 2 vision encoder -->
+  <rect x="200" y="70" width="160" height="100" rx="8" fill="#dbe9f7" stroke="#2c6fb7" stroke-width="1.5"/>
+  <text x="280" y="95" text-anchor="middle" font-weight="bold" fill="#1d4f86">2. Vision encoder</text>
+  <text x="280" y="117" text-anchor="middle" font-size="11" fill="#1d4f86">patches →</text>
+  <text x="280" y="132" text-anchor="middle" font-size="11" fill="#1d4f86">patch features</text>
+  <text x="280" y="62" text-anchor="middle" font-size="11" font-weight="bold" fill="#888">GPU</text>
+
+  <!-- 3 connector -->
+  <rect x="380" y="70" width="160" height="100" rx="8" fill="#fde3c8" stroke="#d35400" stroke-width="1.5"/>
+  <text x="460" y="95" text-anchor="middle" font-weight="bold" fill="#a04000">3. Connector</text>
+  <text x="460" y="117" text-anchor="middle" font-size="11" fill="#a04000">patch features →</text>
+  <text x="460" y="132" text-anchor="middle" font-size="11" fill="#a04000">visual tokens</text>
+  <text x="460" y="152" text-anchor="middle" font-size="10" font-style="italic" fill="#a04000">(the projection step)</text>
+  <text x="460" y="62" text-anchor="middle" font-size="11" font-weight="bold" fill="#888">GPU</text>
+
+  <!-- 4 splice -->
+  <rect x="560" y="70" width="160" height="100" rx="8" fill="#f4f4f4" stroke="#888" stroke-width="1.5"/>
+  <text x="640" y="95" text-anchor="middle" font-weight="bold" fill="#333">4. Splice</text>
+  <text x="640" y="117" text-anchor="middle" font-size="11" fill="#444">replace the &lt;image&gt;</text>
+  <text x="640" y="132" text-anchor="middle" font-size="11" fill="#444">placeholder with the</text>
+  <text x="640" y="147" text-anchor="middle" font-size="11" fill="#444">visual tokens</text>
+  <text x="640" y="62" text-anchor="middle" font-size="11" font-weight="bold" fill="#888">GPU</text>
+
+  <!-- 5 prefill -->
+  <rect x="740" y="70" width="160" height="100" rx="8" fill="#e8dcf4" stroke="#7d3c98" stroke-width="1.5"/>
+  <text x="820" y="95" text-anchor="middle" font-weight="bold" fill="#5b2c6f">5. LLM prefill</text>
+  <text x="820" y="117" text-anchor="middle" font-size="11" fill="#5b2c6f">process the whole</text>
+  <text x="820" y="132" text-anchor="middle" font-size="11" fill="#5b2c6f">sequence in parallel,</text>
+  <text x="820" y="147" text-anchor="middle" font-size="11" fill="#5b2c6f">fill the KV cache</text>
+  <text x="820" y="62" text-anchor="middle" font-size="11" font-weight="bold" fill="#888">GPU</text>
+
+  <!-- 6 decode -->
+  <rect x="920" y="70" width="160" height="100" rx="8" fill="#e8dcf4" stroke="#7d3c98" stroke-width="1.5"/>
+  <text x="1000" y="95" text-anchor="middle" font-weight="bold" fill="#5b2c6f">6. LLM decode</text>
+  <text x="1000" y="117" text-anchor="middle" font-size="11" fill="#5b2c6f">generate the answer</text>
+  <text x="1000" y="132" text-anchor="middle" font-size="11" fill="#5b2c6f">one token at a time</text>
+  <text x="1000" y="147" text-anchor="middle" font-size="11" fill="#5b2c6f">(image not re-run)</text>
+  <text x="1000" y="62" text-anchor="middle" font-size="11" font-weight="bold" fill="#888">GPU</text>
+
+  <!-- arrows -->
+  <g stroke="#444" stroke-width="1.5" marker-end="url(#arr)">
+    <line x1="181" y1="120" x2="198" y2="120"/>
+    <line x1="361" y1="120" x2="378" y2="120"/>
+    <line x1="541" y1="120" x2="558" y2="120"/>
+    <line x1="721" y1="120" x2="738" y2="120"/>
+    <line x1="901" y1="120" x2="918" y2="120"/>
+  </g>
+  <!-- decode loop -->
+  <path d="M 1040 170 C 1040 200, 960 200, 960 172" fill="none" stroke="#7d3c98" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="1000" y="212" text-anchor="middle" font-size="11" fill="#7d3c98">repeat per output token</text>
+
+  <!-- phase brackets -->
+  <path d="M 200 225 L 200 235 L 900 235 L 900 225" fill="none" stroke="#555" stroke-width="1.5"/>
+  <text x="550" y="255" text-anchor="middle" font-weight="bold" fill="#333">Prefill phase: once per request</text>
+  <text x="550" y="273" text-anchor="middle" font-size="11" fill="#666">vLLM can reuse the image encoding and the shared prompt prefix across the 15 queries per sign</text>
+
+  <path d="M 920 225 L 920 235 L 1080 235 L 1080 225" fill="none" stroke="#555" stroke-width="1.5"/>
+  <text x="1000" y="255" text-anchor="middle" font-weight="bold" fill="#333">Decode phase</text>
+  <text x="1000" y="273" text-anchor="middle" font-size="11" fill="#666">same as a text-only LLM</text>
+</svg>

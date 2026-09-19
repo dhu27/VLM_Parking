@@ -1,6 +1,7 @@
 # Secrets
 .env
 .env.*
+!.env.example
 
 # Python / uv
 __pycache__/
@@ -39,3 +40,7 @@ hf_cache/
 .DS_Store
 .vscode/
 .idea/
+
+# Large raw API dumps (regenerable with scripts/phase0_*.py)
+data/**/detections.json
+data/**/map_features.json

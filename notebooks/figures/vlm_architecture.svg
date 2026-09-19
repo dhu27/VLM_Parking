@@ -1,0 +1,144 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 480" width="1100" height="480" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
+    </marker>
+  </defs>
+  <rect width="1100" height="480" fill="#ffffff"/>
+  <text x="550" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#222">LLaVA-style VLM architecture</text>
+
+  <!-- ============ IMAGE PATH (top row) ============ -->
+  <text x="20" y="72" font-size="12" font-weight="bold" fill="#b85c00">IMAGE PATH</text>
+
+  <!-- sign crop -->
+  <rect x="40" y="85" width="90" height="110" rx="4" fill="#f4f4f4" stroke="#888"/>
+  <rect x="55" y="93" width="60" height="22" fill="#fff" stroke="#c0392b" stroke-width="2"/>
+  <text x="85" y="108" text-anchor="middle" font-size="8" font-weight="bold" fill="#c0392b">NO STOPPING</text>
+  <rect x="55" y="118" width="60" height="22" fill="#fff" stroke="#c0392b" stroke-width="2"/>
+  <text x="85" y="133" text-anchor="middle" font-size="8" font-weight="bold" fill="#c0392b">NO PARKING</text>
+  <rect x="55" y="143" width="60" height="22" fill="#fff" stroke="#27ae60" stroke-width="2"/>
+  <text x="85" y="158" text-anchor="middle" font-size="8" font-weight="bold" fill="#27ae60">2 HR PARKING</text>
+  <rect x="83" y="165" width="4" height="30" fill="#888"/>
+  <text x="85" y="215" text-anchor="middle" fill="#333">Sign crop</text>
+  <text x="85" y="230" text-anchor="middle" font-size="11" fill="#777">(pixels)</text>
+
+  <line x1="135" y1="140" x2="168" y2="140" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- patch grid -->
+  <g stroke="#888" fill="#f4f4f4">
+    <rect x="175" y="105" width="17" height="17"/><rect x="192" y="105" width="17" height="17"/><rect x="209" y="105" width="17" height="17"/><rect x="226" y="105" width="17" height="17"/>
+    <rect x="175" y="122" width="17" height="17"/><rect x="192" y="122" width="17" height="17"/><rect x="209" y="122" width="17" height="17"/><rect x="226" y="122" width="17" height="17"/>
+    <rect x="175" y="139" width="17" height="17"/><rect x="192" y="139" width="17" height="17"/><rect x="209" y="139" width="17" height="17"/><rect x="226" y="139" width="17" height="17"/>
+    <rect x="175" y="156" width="17" height="17"/><rect x="192" y="156" width="17" height="17"/><rect x="209" y="156" width="17" height="17"/><rect x="226" y="156" width="17" height="17"/>
+  </g>
+  <text x="209" y="215" text-anchor="middle" fill="#333">Patches</text>
+  <text x="209" y="230" text-anchor="middle" font-size="11" fill="#777">(14–16 px squares)</text>
+
+  <line x1="248" y1="140" x2="281" y2="140" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- vision encoder -->
+  <rect x="288" y="95" width="140" height="90" rx="8" fill="#dbe9f7" stroke="#2c6fb7" stroke-width="1.5"/>
+  <text x="358" y="125" text-anchor="middle" font-weight="bold" fill="#1d4f86">Vision encoder</text>
+  <text x="358" y="143" text-anchor="middle" fill="#1d4f86">(ViT / SigLIP)</text>
+  <text x="358" y="163" text-anchor="middle" font-size="11" fill="#1d4f86">bidirectional attention</text>
+  <text x="358" y="215" text-anchor="middle" font-size="11" fill="#777">~0.3–0.6B params</text>
+  <text x="358" y="230" text-anchor="middle" font-size="11" fill="#777">pretrained contrastively</text>
+
+  <line x1="433" y1="140" x2="466" y2="140" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- patch features -->
+  <g stroke="#2c6fb7" fill="#a9c9ec">
+    <rect x="473" y="105" width="17" height="17"/><rect x="490" y="105" width="17" height="17"/><rect x="507" y="105" width="17" height="17"/><rect x="524" y="105" width="17" height="17"/>
+    <rect x="473" y="122" width="17" height="17"/><rect x="490" y="122" width="17" height="17"/><rect x="507" y="122" width="17" height="17"/><rect x="524" y="122" width="17" height="17"/>
+    <rect x="473" y="139" width="17" height="17"/><rect x="490" y="139" width="17" height="17"/><rect x="507" y="139" width="17" height="17"/><rect x="524" y="139" width="17" height="17"/>
+    <rect x="473" y="156" width="17" height="17"/><rect x="490" y="156" width="17" height="17"/><rect x="507" y="156" width="17" height="17"/><rect x="524" y="156" width="17" height="17"/>
+  </g>
+  <text x="507" y="215" text-anchor="middle" fill="#333">Patch features</text>
+  <text x="507" y="230" text-anchor="middle" font-size="11" fill="#777">(vision space)</text>
+
+  <line x1="546" y1="140" x2="579" y2="140" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- connector -->
+  <rect x="586" y="95" width="130" height="90" rx="8" fill="#fde3c8" stroke="#d35400" stroke-width="1.5"/>
+  <text x="651" y="125" text-anchor="middle" font-weight="bold" fill="#a04000">Connector</text>
+  <text x="651" y="143" text-anchor="middle" fill="#a04000">(projector)</text>
+  <text x="651" y="163" text-anchor="middle" font-size="11" fill="#a04000">2×2 merge + MLP</text>
+  <text x="651" y="215" text-anchor="middle" font-size="11" fill="#777">~10–100M params</text>
+  <text x="651" y="230" text-anchor="middle" font-size="11" fill="#777">maps into LLM space</text>
+
+  <line x1="721" y1="140" x2="754" y2="140" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- visual tokens -->
+  <g stroke="#d35400" fill="#f5a35c">
+    <rect x="761" y="130" width="20" height="20"/><rect x="783" y="130" width="20" height="20"/><rect x="805" y="130" width="20" height="20"/><rect x="827" y="130" width="20" height="20"/>
+  </g>
+  <text x="804" y="118" text-anchor="middle" fill="#333">Visual tokens</text>
+  <text x="804" y="170" text-anchor="middle" font-size="11" fill="#777">(4× fewer than patches)</text>
+
+  <!-- dashed bracket: runs once per image -->
+  <rect x="280" y="80" width="445" height="162" rx="10" fill="none" stroke="#999" stroke-dasharray="5,4"/>
+  <text x="502" y="258" text-anchor="middle" font-size="11" font-style="italic" fill="#666">runs once per image, at the start of the request</text>
+
+  <!-- ============ TEXT PATH (bottom row) ============ -->
+  <text x="20" y="318" font-size="12" font-weight="bold" fill="#1e8449">TEXT PATH</text>
+
+  <rect x="40" y="330" width="210" height="50" rx="4" fill="#f4f4f4" stroke="#888"/>
+  <text x="145" y="352" text-anchor="middle" fill="#333">"Tue 11:30, no permit,</text>
+  <text x="145" y="369" text-anchor="middle" fill="#333">staying 3 hr. Legal?"</text>
+
+  <line x1="255" y1="355" x2="281" y2="355" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="288" y="320" width="140" height="70" rx="8" fill="#d5f0de" stroke="#1e8449" stroke-width="1.5"/>
+  <text x="358" y="348" text-anchor="middle" font-weight="bold" fill="#145a32">Tokenizer +</text>
+  <text x="358" y="366" text-anchor="middle" font-weight="bold" fill="#145a32">embedding table</text>
+
+  <line x1="433" y1="355" x2="754" y2="355" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="594" y="347" text-anchor="middle" font-size="11" fill="#777">same as any text-only LLM</text>
+
+  <g stroke="#1e8449" fill="#7fd19b">
+    <rect x="761" y="345" width="20" height="20"/><rect x="783" y="345" width="20" height="20"/><rect x="805" y="345" width="20" height="20"/><rect x="827" y="345" width="20" height="20"/>
+  </g>
+  <text x="804" y="385" text-anchor="middle" fill="#333">Text tokens</text>
+
+  <!-- ============ MERGE INTO ONE SEQUENCE ============ -->
+  <line x1="804" y1="152" x2="804" y2="222" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+  <line x1="804" y1="343" x2="804" y2="262" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <g stroke-width="1">
+    <rect x="740" y="230" width="16" height="24" fill="#d0d0d0" stroke="#888"/>
+    <rect x="757" y="230" width="16" height="24" fill="#d0d0d0" stroke="#888"/>
+    <rect x="774" y="230" width="16" height="24" fill="#f5a35c" stroke="#d35400"/>
+    <rect x="791" y="230" width="16" height="24" fill="#f5a35c" stroke="#d35400"/>
+    <rect x="808" y="230" width="16" height="24" fill="#f5a35c" stroke="#d35400"/>
+    <rect x="825" y="230" width="16" height="24" fill="#f5a35c" stroke="#d35400"/>
+    <rect x="842" y="230" width="16" height="24" fill="#7fd19b" stroke="#1e8449"/>
+    <rect x="859" y="230" width="16" height="24" fill="#7fd19b" stroke="#1e8449"/>
+    <rect x="876" y="230" width="16" height="24" fill="#7fd19b" stroke="#1e8449"/>
+    <rect x="893" y="230" width="16" height="24" fill="#7fd19b" stroke="#1e8449"/>
+  </g>
+  <text x="870" y="222" text-anchor="start" font-size="11" fill="#777">one sequence</text>
+
+  <line x1="913" y1="242" x2="941" y2="242" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- LLM -->
+  <rect x="948" y="160" width="130" height="165" rx="8" fill="#e8dcf4" stroke="#7d3c98" stroke-width="1.5"/>
+  <text x="1013" y="205" text-anchor="middle" font-weight="bold" font-size="15" fill="#5b2c6f">LLM</text>
+  <text x="1013" y="225" text-anchor="middle" fill="#5b2c6f">decoder</text>
+  <text x="1013" y="250" text-anchor="middle" font-size="11" fill="#5b2c6f">causal attention</text>
+  <text x="1013" y="268" text-anchor="middle" font-size="11" fill="#5b2c6f">e.g. Qwen3-8B</text>
+  <text x="1013" y="295" text-anchor="middle" font-size="11" fill="#5b2c6f">~8B params</text>
+
+  <line x1="1013" y1="330" x2="1013" y2="398" stroke="#444" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="905" y="405" width="180" height="42" rx="4" fill="#f4f4f4" stroke="#888"/>
+  <text x="995" y="424" text-anchor="middle" font-family="Menlo, monospace" font-size="11" fill="#333">{"verdict": "illegal",</text>
+  <text x="995" y="439" text-anchor="middle" font-family="Menlo, monospace" font-size="11" fill="#333"> "governing_panel": 2}</text>
+
+  <!-- legend -->
+  <g font-size="11" fill="#555">
+    <rect x="40" y="430" width="12" height="12" fill="#d0d0d0" stroke="#888"/><text x="58" y="440">system / template tokens</text>
+    <rect x="215" y="430" width="12" height="12" fill="#f5a35c" stroke="#d35400"/><text x="233" y="440">visual tokens: continuous vectors, no vocabulary ID</text>
+    <rect x="535" y="430" width="12" height="12" fill="#7fd19b" stroke="#1e8449"/><text x="553" y="440">text tokens: vocabulary lookup</text>
+  </g>
+  <text x="40" y="465" font-size="11" fill="#999">Output is text only. Training loss is computed on text tokens only.</text>
+</svg>
