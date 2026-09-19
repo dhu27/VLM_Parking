@@ -27,7 +27,7 @@ When in doubt about legibility, reject. The dataset's scope is signs a careful h
 
 | Field | Rule |
 |---|---|
-| `panels` | One entry per panel, **top to bottom**, `order` starting at 0. A panel is one rule: usually one physical plate, but a plate with two separate rules (e.g. two unrelated time windows with different rules) is two panels. |
+| `panels` | One entry per panel, **top to bottom**, `order` starting at 0. A panel is **one rule with one time window**, not one physical plate: a plate listing two time windows ("7AM–9AM 4PM–7PM") is two panels, and a plate with side-by-side columns (e.g. weekday hours on the left, weekend hours on the right) is one panel per column, **left before right**. Headers like "ANTI-GRIDLOCK ZONE" are not panels. |
 | `arrow` | Record `left`, `right`, `both`, or `none` for the arrow on the sign. It is **not** used to change the rules. |
 | `n_panels` | Leave blank; it's computed from `panels`. |
 | `ambiguous` | `true` only if two panels genuinely conflict and the conflict can't be resolved by the priority rule below. Still transcribe every panel. |
@@ -80,7 +80,8 @@ When in doubt about legibility, reject. The dataset's scope is signs a careful h
 ### `except_holidays`, `tow_away`
 
 - `except_holidays: true` if the panel says holidays are excepted. Don't list dates.
-- `tow_away: true` if the tow-away warning belongs to that panel ("TOW-AWAY NO STOPPING 7–9AM"). It's a flag on that panel, **not** a separate panel.
+- `tow_away: true` if the tow-away warning belongs to that panel ("TOW-AWAY NO STOPPING 7–9AM"). It's a flag on that panel, **not** a separate panel. Only set it when "TOW-AWAY" is printed; an "ANTI-GRIDLOCK ZONE" header alone doesn't count. When one plate is split into several panels, give each of them the flag.
+- **Column headers decide days.** If a plate's columns are labelled (e.g. "MON–FRI" / "SAT–SUN") and the labels can't be read, reject the sign as `illegible_fine_print`. Don't infer the days.
 
 ---
 
@@ -108,6 +109,21 @@ ANTI-GRIDLOCK ZONE  TOW-AWAY NO STOPPING 7AM–9AM 4PM–7PM MON–FRI
   {"order": 0, "rule": "no_stopping", "days": ["MON","TUE","WED","THU","FRI"], "start": "07:00", "end": "09:00", "tow_away": true},
   {"order": 1, "rule": "no_stopping", "days": ["MON","TUE","WED","THU","FRI"], "start": "16:00", "end": "19:00", "tow_away": true},
   {"order": 2, "rule": "time_limited", "days": ["MON","TUE","WED","THU","FRI","SAT"], "start": "09:00", "end": "16:00", "limit_min": 60}
+]
+```
+
+**Two no-stopping windows + a two-column time limit**
+```
+ANTI-GRIDLOCK ZONE
+NO STOPPING 7AM TO 9AM, 4PM TO 7PM, EXCEPT SATURDAY & SUNDAY
+30 MINUTE PARKING   MON–FRI 9AM TO 4PM  |  SAT–SUN 8AM TO 8PM
+```
+```json
+[
+  {"order": 0, "rule": "no_stopping", "days": ["MON","TUE","WED","THU","FRI"], "start": "07:00", "end": "09:00"},
+  {"order": 1, "rule": "no_stopping", "days": ["MON","TUE","WED","THU","FRI"], "start": "16:00", "end": "19:00"},
+  {"order": 2, "rule": "time_limited", "days": ["MON","TUE","WED","THU","FRI"], "start": "09:00", "end": "16:00", "limit_min": 30},
+  {"order": 3, "rule": "time_limited", "days": ["SAT","SUN"], "start": "08:00", "end": "20:00", "limit_min": 30}
 ]
 ```
 
