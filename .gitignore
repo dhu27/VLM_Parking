@@ -1,0 +1,41 @@
+# Secrets
+.env
+.env.*
+
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Data: images and large artifacts are released separately
+data/raw/
+data/images/
+data/crops/
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.sqlite
+*.sqlite3
+*.db
+*.parquet
+*.jsonl
+checkpoints/
+
+# Model weights / caches
+models/
+hf_cache/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
