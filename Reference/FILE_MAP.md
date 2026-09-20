@@ -35,6 +35,7 @@ What every file and folder in this repo is for. Folders full of one kind of file
 | `prescreen.py` | Cheap filters that decide which images are worth a look, before downloading anything: minimum resolution, not on or beside a freeway (OpenStreetMap freeway lines via Overpass, cached), and at least one large, upright, uncut, non-overhead sign detection. Also defines the five target `AREAS` and the sampling / spatial-dedup helpers. |
 | `collect.py` | Helpers for Phase 1 collection: merging stacked panels on one pole into a single crop, the OCR rule (OCR may only *reject* crops it clearly reads as non-parking signs; it never gates signs in), and clustering views of the same physical sign across drives. |
 | `queries.py` | Query generation for one sign: query types defined by how stable the verdict is (±30 min for "clear", flips within ±5 min for "boundary"), permit pairs, and distractor permit pairs for signs with no district. |
+| `prompts.py` | The prompt and answer schema shared by both conditions and all models: task statement, query wording, condition B's text rendering of a sign, and the `Answer` schema (reason → governing panel → verdict) used for guided JSON decoding. |
 | `dataset.py` | Defines the **accepted cohort**: triage-accepted *and* OCR-confirmed parking text. Everything downstream (labeling, query generation) uses this, not `triage.csv` directly. |
 | `schema.py` | Pydantic models for a transcribed sign (`Sign`, `Panel`, `ImageQuality`), a query (`Query`: day, time, duration, permit), and an answer (`Verdict`). Validates transcriptions. |
 | `evaluator.py` | The ground-truth evaluator: `evaluate(sign, query) -> Verdict`. Decides legal / illegal / ambiguous and which panel governs, using the semantics in `ANNOTATION_GUIDE.md` §5. |
@@ -49,6 +50,7 @@ What every file and folder in this repo is for. Folders full of one kind of file
 | `collect.py` | **The Phase 1 collection pipeline.** Five resumable stages per area: `screen` (detections for up to `--n-screen` images; keep ones with a big sign) → `crop` (download 2048-px thumbnails, merge stacks, crop, OCR) → `dedup` (drop clear non-parking signs; collapse repeat views of one sign; keep your triaged crops as representatives) → `final` (full-resolution crops from the originals + `candidates.csv`; by default only OCR-confirmed or already-triaged signs, `--all-ocr` for everything) → `sheets` (contact sheets). | `uv run python scripts/collect.py --areas koreatown` |
 | `label.py` | **Phase 3 labeling tool** (browser). Every sign in the accepted cohort is labeled by hand, blind: transcribe it panel by panel or reject it with a reason code, and check any query against the form with the evaluator. Queue: the stratified gold sample first, then the rest, most promising first (OCR-confirmed, more panels, larger). `--round 2` hides round-1 labels for the self-consistency re-label. | `uv run python scripts/label.py` → http://localhost:8766 |
 | `make_queries.py` | **Phase 4 query generation.** 15 queries per labeled sign (clearly legal / clearly illegal / boundary / permit / permit-distractor), each with its evaluator verdict; writes `data/queries/*.parquet`. | `uv run python scripts/make_queries.py` |
+| `run_inference.py` | **Phase 5 inference.** Runs one model over the query set in one condition with vLLM, guided JSON decoding, temperature 0, a fixed image-resize policy, result caching and incremental JSONL writes. `--dry-run` builds prompts without a GPU. | `uv run python scripts/run_inference.py --model qwen3-vl-8b --condition A` |
 | `triage.py` | Local browser tool for accept / maybe / reject triage of the collected crops (OCR-confirmed only; `--all` for everything). Saves decisions to `data/collect/triage.csv` after every page. | `uv run python scripts/triage.py` → http://localhost:8765 |
 
 ## `tests/`
@@ -58,6 +60,7 @@ What every file and folder in this repo is for. Folders full of one kind of file
 | `test_prescreen.py` | Bbox tiling, detection-geometry decoding orientation, sign-size/shape/position filters, freeway buffer, spatial dedup. |
 | `test_collect.py` | Duplicate-box removal, stack merging, the OCR parking/other/unknown rule, duplicate-sign clustering. |
 | `test_queries.py` | Query counts and types, verdicts matching the evaluator, clear queries stable under ±30 min, boundary queries flipping within ±5 min, permit pairs differing, distractor permit pairs not differing, determinism. |
+| `test_prompts.py` | Conditions A and B differ only in the sign part, query and sign wording, image-first message order, answer schema field order and validation. |
 | `test_evaluator.py` | Every evaluator case from the plan (each rule type, overnight windows, boundary minutes, day-of-week edges, permits, durations, multi-panel priority, ambiguity), schema validation, and a check that the guide's JSON examples validate. |
 
 Run all with `uv run pytest`.
@@ -103,6 +106,14 @@ Run all with `uv run pytest`.
 |---|---|
 | 🟢 `signs_v1.parquet` | One row per labeled sign: crop path, attribution (photographer, source URL, licence), location, capture date, panel count, and the sign as schema JSON. |
 | 🟢 `queries_v1.parquet` | One row per query: sign, type, day, time, duration, permit, and the evaluator's verdict, governing panel and reason. |
+
+### `data/runs/` — Phase 5 model outputs
+
+| Path | Contains |
+|---|---|
+| `<model>_<condition>.jsonl` | One line per query: the model's answer, the raw text, token counts and finish reason. |
+| `cache.sqlite` | Every response keyed on (model, condition, image/sign hash, prompt, sampling params), so re-runs resume for free. |
+| `prompts_<model>_<condition>.jsonl` | Dry-run output: the exact prompts, for inspection before renting a GPU. |
 
 ### `data/labels/` — Phase 3 labels
 

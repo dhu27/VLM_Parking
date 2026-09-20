@@ -57,5 +57,8 @@ data/collect/sheets/
 # Labels are hand work: always track them
 !data/labels/labels.sqlite
 
+# Model outputs are large and regenerable from the cache
+data/runs/
+
 # The query set is small and derived deterministically from the labels; keep it for reproducibility
 !data/queries/
