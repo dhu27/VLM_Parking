@@ -76,6 +76,7 @@ When in doubt about legibility, reject. The dataset's scope is signs a careful h
 - On `permit_only`: the district number or name required to park.
 - On any other rule: the district whose permit holders are **exempt** ("VEHICLES WITH DISTRICT 7 PERMITS EXEMPT" under a time limit → `district: "7"` on that time-limit panel).
 - Record the district exactly as printed, without "No." or "#" ("DISTRICT No. 7" → `"7"`).
+- **An exemption plate is not a panel.** A plate reading only "DISTRICT No. 31 PERMITS EXEMPT" modifies the rule plates it hangs under: put its district on each of those panels. **Never put it on a street-sweeping / street-cleaning panel** — permits don't exempt you from street cleaning. If it's unclear which panels an exemption plate covers, reject the sign as `unsupported_condition`.
 
 ### `except_holidays`, `tow_away`
 
@@ -124,6 +125,21 @@ NO STOPPING 7AM TO 9AM, 4PM TO 7PM, EXCEPT SATURDAY & SUNDAY
   {"order": 1, "rule": "no_stopping", "days": ["MON","TUE","WED","THU","FRI"], "start": "16:00", "end": "19:00"},
   {"order": 2, "rule": "time_limited", "days": ["MON","TUE","WED","THU","FRI"], "start": "09:00", "end": "16:00", "limit_min": 30},
   {"order": 3, "rule": "time_limited", "days": ["SAT","SUN"], "start": "08:00", "end": "20:00", "limit_min": 30}
+]
+```
+
+**Preferential-parking stack with an exemption plate** (street sweeping is *not* exempted)
+```
+NO PARKING 8AM TO 10AM WEDNESDAY STREET SWEEPING
+NO PARKING 6PM TO 8AM
+2 HOUR PARKING 8AM TO 6PM
+DISTRICT NO. 31 PERMITS EXEMPT
+```
+```json
+[
+  {"order": 0, "rule": "no_parking", "days": ["WED"], "start": "08:00", "end": "10:00"},
+  {"order": 1, "rule": "no_parking", "days": ["MON","TUE","WED","THU","FRI","SAT","SUN"], "start": "18:00", "end": "08:00", "district": "31"},
+  {"order": 2, "rule": "time_limited", "days": ["MON","TUE","WED","THU","FRI","SAT","SUN"], "start": "08:00", "end": "18:00", "limit_min": 120, "district": "31"}
 ]
 ```
 
