@@ -10,6 +10,7 @@ dependencies = [
     "onnxruntime>=1.30.0",
     "pandas>=2.2",
     "pillow>=10.4",
+    "pyarrow>=25.0.1",
     "pydantic>=2.7",
     "python-dotenv>=1.0",
     "rapidocr>=3.9.2",

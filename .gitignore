@@ -56,3 +56,6 @@ data/collect/sheets/
 
 # Labels are hand work: always track them
 !data/labels/labels.sqlite
+
+# The query set is small and derived deterministically from the labels; keep it for reproducibility
+!data/queries/

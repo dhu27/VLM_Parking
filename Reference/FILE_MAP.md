@@ -34,6 +34,7 @@ What every file and folder in this repo is for. Folders full of one kind of file
 | `mapillary.py` | Mapillary Graph API client. Searches images and map features in a bounding box (split into small tiles; tiles that hit the result cap or keep erroring are split further), retries with backoff, fetches per-image detections, downloads thumbnails, and decodes Mapillary's base64 detection outlines into pixel boxes. |
 | `prescreen.py` | Cheap filters that decide which images are worth a look, before downloading anything: minimum resolution, not on or beside a freeway (OpenStreetMap freeway lines via Overpass, cached), and at least one large, upright, uncut, non-overhead sign detection. Also defines the five target `AREAS` and the sampling / spatial-dedup helpers. |
 | `collect.py` | Helpers for Phase 1 collection: merging stacked panels on one pole into a single crop, the OCR rule (OCR may only *reject* crops it clearly reads as non-parking signs; it never gates signs in), and clustering views of the same physical sign across drives. |
+| `queries.py` | Query generation for one sign: query types defined by how stable the verdict is (±30 min for "clear", flips within ±5 min for "boundary"), permit pairs, and distractor permit pairs for signs with no district. |
 | `dataset.py` | Defines the **accepted cohort**: triage-accepted *and* OCR-confirmed parking text. Everything downstream (labeling, query generation) uses this, not `triage.csv` directly. |
 | `schema.py` | Pydantic models for a transcribed sign (`Sign`, `Panel`, `ImageQuality`), a query (`Query`: day, time, duration, permit), and an answer (`Verdict`). Validates transcriptions. |
 | `evaluator.py` | The ground-truth evaluator: `evaluate(sign, query) -> Verdict`. Decides legal / illegal / ambiguous and which panel governs, using the semantics in `ANNOTATION_GUIDE.md` §5. |
@@ -47,6 +48,7 @@ What every file and folder in this repo is for. Folders full of one kind of file
 | `phase0_probe.py` | Builds a ~100-image review sample for the Phase 0 go/no-go notebook: pre-screened (`--prescreen`) or random baseline. Downloads the images and their detections. | `uv run python scripts/phase0_probe.py --area koreatown --prescreen` |
 | `collect.py` | **The Phase 1 collection pipeline.** Five resumable stages per area: `screen` (detections for up to `--n-screen` images; keep ones with a big sign) → `crop` (download 2048-px thumbnails, merge stacks, crop, OCR) → `dedup` (drop clear non-parking signs; collapse repeat views of one sign; keep your triaged crops as representatives) → `final` (full-resolution crops from the originals + `candidates.csv`; by default only OCR-confirmed or already-triaged signs, `--all-ocr` for everything) → `sheets` (contact sheets). | `uv run python scripts/collect.py --areas koreatown` |
 | `label.py` | **Phase 3 labeling tool** (browser). Every sign in the accepted cohort is labeled by hand, blind: transcribe it panel by panel or reject it with a reason code, and check any query against the form with the evaluator. Queue: the stratified gold sample first, then the rest, most promising first (OCR-confirmed, more panels, larger). `--round 2` hides round-1 labels for the self-consistency re-label. | `uv run python scripts/label.py` → http://localhost:8766 |
+| `make_queries.py` | **Phase 4 query generation.** 15 queries per labeled sign (clearly legal / clearly illegal / boundary / permit / permit-distractor), each with its evaluator verdict; writes `data/queries/*.parquet`. | `uv run python scripts/make_queries.py` |
 | `triage.py` | Local browser tool for accept / maybe / reject triage of the collected crops (OCR-confirmed only; `--all` for everything). Saves decisions to `data/collect/triage.csv` after every page. | `uv run python scripts/triage.py` → http://localhost:8765 |
 
 ## `tests/`
@@ -93,6 +95,13 @@ Run all with `uv run pytest`.
 | `<area>/thumb_crops/` | **Low-res parking-sign crops** (from 2048-px thumbnails), every stack including duplicates, named `<image_id>_<k>.jpg`. Working copies used for OCR and duplicate detection; safe to delete once the dataset is final. |
 | `crops/<area>/` | **Full-resolution parking-sign crops**, one JPEG per unique candidate sign, named `<image_id>_<k>.jpg`. These are what you triage and what the models will see. |
 | `sheets/<area>/` | **Contact sheets**: `sheet_NN.jpg` grids of candidate crops, with `sheet_NN.csv` mapping each tile number to its `candidate_id`. |
+
+### `data/queries/` — Phase 4 query set
+
+| Path | Contains |
+|---|---|
+| 🟢 `signs_v1.parquet` | One row per labeled sign: crop path, attribution (photographer, source URL, licence), location, capture date, panel count, and the sign as schema JSON. |
+| 🟢 `queries_v1.parquet` | One row per query: sign, type, day, time, duration, permit, and the evaluator's verdict, governing panel and reason. |
 
 ### `data/labels/` — Phase 3 labels
 
