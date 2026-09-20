@@ -2,7 +2,7 @@
 
 What every file and folder in this repo is for. Folders full of one kind of file (e.g. sign images) are described once, not file by file.
 
-**Git:** 🟢 = tracked in git · ⚪ = ignored (local only, regenerable). Under `data/`, only `data/collect/triage.csv`, `data/collect/<area>/candidates.csv`, and `data/labels/` (labels database + gold set) are committed; images are never committed.
+**Git:** 🟢 = tracked in git · ⚪ = ignored (local only, regenerable). Under `data/`, only `data/collect/triage.csv`, `data/collect/<area>/candidates.csv`, `data/labels/` (labels database + gold set) and `data/queries/` (the query set) are committed; images are never committed.
 
 ---
 
@@ -11,7 +11,7 @@ What every file and folder in this repo is for. Folders full of one kind of file
 | Path | What it is |
 |---|---|
 | 🟢 `README.md` | Project overview, setup, and how to run Phase 0. Day-1 numbers go here. |
-| 🟢 `ANNOTATION_GUIDE.md` | Rules for transcribing a sign into the schema, reject reasons, worked examples, and the evaluator's legality rules. Also the system prompt for the pre-fill labeler model. |
+| 🟢 `ANNOTATION_GUIDE.md` | Rules for transcribing a sign into the schema, reject reasons, worked examples, and the evaluator's legality rules. Every sign is labeled by hand against it; there is no model pre-fill. |
 | 🟢 `pyproject.toml` / `uv.lock` | Python 3.11 project and pinned dependencies (`uv sync` installs them). |
 | 🟢 `.gitignore` | Keeps secrets, images, data dumps and logs out of git. |
 | 🟢 `.env.example` | Template for API keys. Copy to `.env`. |
@@ -57,6 +57,7 @@ What every file and folder in this repo is for. Folders full of one kind of file
 |---|---|
 | `test_prescreen.py` | Bbox tiling, detection-geometry decoding orientation, sign-size/shape/position filters, freeway buffer, spatial dedup. |
 | `test_collect.py` | Duplicate-box removal, stack merging, the OCR parking/other/unknown rule, duplicate-sign clustering. |
+| `test_queries.py` | Query counts and types, verdicts matching the evaluator, clear queries stable under ±30 min, boundary queries flipping within ±5 min, permit pairs differing, distractor permit pairs not differing, determinism. |
 | `test_evaluator.py` | Every evaluator case from the plan (each rule type, overnight windows, boundary minutes, day-of-week edges, permits, durations, multi-panel priority, ambiguity), schema validation, and a check that the guide's JSON examples validate. |
 
 Run all with `uv run pytest`.
