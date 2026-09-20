@@ -13,7 +13,7 @@ Every sign is labeled by hand, blind (no model pre-fill). The guide is written t
 | Reason code | When |
 |---|---|
 | `illegible_panel` | Any panel can't be fully read: text, times, days, or limits. |
-| `illegible_fine_print` | The main text is readable but fine print that could change the rule isn't (e.g. a blurred "EXCEPT SUNDAYS" line). |
+| `illegible_fine_print` | The main text is readable but fine print that could change the rule isn't (e.g. a blurred "EXCEPT SUNDAYS" line). The standard tow-away contact line ("to recover your vehicle call…") doesn't change any rule, so it needn't be readable. |
 | `cut_off` | Part of the stack is outside the crop or the photo. |
 | `multiple_signs` | The crop mixes panels from two unrelated signs and can't be re-cropped cleanly. |
 | `unsupported_condition` | The sign has a condition the schema can't express: school days, specific dates, week-of-month ("1ST & 3RD TUE"), events, "when posted", vehicle types other than permits (commercial vehicles only, oversize vehicles), or a temporary / paper sign. |
@@ -30,7 +30,7 @@ When in doubt about legibility, reject. The dataset's scope is signs a careful h
 | `panels` | One entry per panel, **top to bottom**, `order` starting at 0. A panel is **one rule with one time window**, not one physical plate: a plate listing two time windows ("7AM–9AM 4PM–7PM") is two panels, and a plate with side-by-side columns (e.g. weekday hours on the left, weekend hours on the right) is one panel per column, **left before right**. Headers like "ANTI-GRIDLOCK ZONE" are not panels. |
 | `arrow` | Record `left`, `right`, `both`, or `none` for the arrow on the sign. It is **not** used to change the rules. |
 | `n_panels` | Leave blank; it's computed from `panels`. |
-| `ambiguous` | `true` only if two panels genuinely conflict and the conflict can't be resolved by the priority rule below. Still transcribe every panel. |
+| `ambiguous` | `true` when the sign has more than one defensible reading: two panels genuinely conflict, **or** the wording itself is unclear (e.g. "8AM TO 8PM / SATURDAY / EXCEPT SUNDAY" — Saturday only, or every day but Sunday?). Still transcribe the most defensible reading, and say what's unclear in `notes`. Ambiguous signs evaluate to `ambiguous` and are left out of query generation, so a coin-flip reading never becomes ground truth. |
 | `image_quality` | `angle`: frontal / oblique / severe. `glare`, `occlusion`: true if present at all. `legibility`: `clear`, or `hard` if you could read it only with effort. |
 | `notes` | Anything unusual, in a few words. |
 
@@ -81,7 +81,7 @@ When in doubt about legibility, reject. The dataset's scope is signs a careful h
 ### `except_holidays`, `tow_away`
 
 - `except_holidays: true` if the panel says holidays are excepted. Don't list dates.
-- `tow_away: true` if the tow-away warning belongs to that panel ("TOW-AWAY NO STOPPING 7–9AM"). It's a flag on that panel, **not** a separate panel. Only set it when "TOW-AWAY" is printed; an "ANTI-GRIDLOCK ZONE" header alone doesn't count. When one plate is split into several panels, give each of them the flag.
+- `tow_away: true` if the tow-away warning belongs to that panel ("TOW-AWAY NO STOPPING 7–9AM"). It's a flag on that panel, **not** a separate panel. Set it when "TOW-AWAY" is printed **or** the plate carries the tow-truck graphic; an "ANTI-GRIDLOCK ZONE" header alone doesn't count. When one plate is split into several panels, give each of them the flag.
 - **Column headers decide days.** If a plate's columns are labelled (e.g. "MON–FRI" / "SAT–SUN") and the labels can't be read, reject the sign as `illegible_fine_print`. Don't infer the days.
 
 ---
