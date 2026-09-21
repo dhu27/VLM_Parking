@@ -177,6 +177,7 @@ PAGE = r"""<!doctype html>
   <b>Sign labeling</b><span class="muted" id="setinfo"></span>
   <span id="progress" class="muted"></span>
   <button id="prev">← Prev (p)</button><button id="next">Next (n) →</button>
+  <input type="text" id="goto" placeholder="go to sign id…" style="width:230px"><button id="gobtn">Go</button>
   <span class="status" id="status"></span>
   <span class="kbd">a save · r reject · f ambiguous · + panel · ⌘/Ctrl+Enter save</span>
 </header>
@@ -396,6 +397,15 @@ async function check() {
 
 $('#addpanel').onclick = () => addPanel(); $('#save').onclick = save; $('#reject').onclick = reject; $('#evalbtn').onclick = check;
 $('#prev').onclick = () => show(idx - 1); $('#next').onclick = () => show(idx + 1);
+function goTo() {
+  const q = $('#goto').value.trim();
+  if (!q) return;
+  const i = items.findIndex(it => it.candidate_id.includes(q));
+  if (i === -1) { $('#errors').textContent = `no sign matching "${q}"`; return; }
+  $('#errors').textContent = ''; $('#goto').blur(); show(i);
+}
+$('#gobtn').onclick = goTo;
+$('#goto').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); goTo(); } });
 document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save(); return; }
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) { if (e.key === 'Enter' && e.target.closest('.card') && e.target.id?.startsWith('q')) check(); return; }
