@@ -1,5 +1,5 @@
-"""Phase 0 go/no-go probe: build a 100-image review sample, download it, and save Mapillary's
-detections so it can be reviewed in notebooks/01_phase0_go_no_go.ipynb.
+"""Phase 0 go/no-go probe: build a ~100-image review sample, download it, and save Mapillary's
+detections alongside it, so the images can be eyeballed for legible parking signs.
 
 Two modes:
   --prescreen (recommended): sample from images that passed the pre-screen in
@@ -100,7 +100,7 @@ def main() -> None:
             if any(h in v for h in PARKING_HINTS):
                 print(f"  {c:>5}  {v}")
 
-    print(f"Done. Review in notebooks/01_phase0_go_no_go.ipynb with DATA = Path('../{out}')")
+    print(f"Done. Images, metadata and detections are in {out}")
 
 
 if __name__ == "__main__":

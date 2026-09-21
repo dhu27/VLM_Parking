@@ -56,7 +56,7 @@ Fine-tuning, condition C (transcribe-then-reason), OCR baseline, prompt primer, 
 
 ## 2. Phase 0 — go/no-go (done)
 
-Built `scripts/phase0_survey.py` and `scripts/phase0_probe.py`, reviewed in `notebooks/01_phase0_go_no_go.ipynb`.
+Built `scripts/phase0_survey.py` and `scripts/phase0_probe.py`, reviewed in ``scripts/phase0_probe.py``.
 
 **What it showed**
 - Mapillary has dense LA coverage (~175k images across the five target areas) but it is mostly 2016–2019 dashcam footage; ~14% of images sit within 30 m of a freeway.

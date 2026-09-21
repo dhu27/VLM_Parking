@@ -70,9 +70,8 @@ Run all with `uv run pytest`.
 | File | What it is |
 |---|---|
 | `00_concepts.ipynb` | Background reading: how VLMs work and extend LLMs, the perception-vs-reasoning design (conditions A and B), LA signs as a task, and inference mechanics (memory, vLLM, decoding, guided JSON, prompting). |
-| `01_phase0_go_no_go.ipynb` | Phase 0 review: step through a sample with detections outlined, record legible parking signs, calibrate the size threshold, time 5 hand transcriptions, save the day-1 numbers. |
-| `02_data_collection_and_annotation.ipynb` | How the dataset was built, in the first person: source choice, the pre-screen, stack merging, OCR as a reject-only filter, deduplication, triage, the schema and annotation rules, the evaluator, labeling results and reject reasons, and the final dataset with figures. |
-| `03_inference_pipeline.ipynb` | How the inference pipeline works, in the first person: the shared prompt and both conditions, the answer schema, guided decoding, caching and determinism, the image policy and token estimates, hardware choice and cost, the run commands, and scoring (incl. the cluster bootstrap) demonstrated on synthetic answers. |
+| `01_data_collection_and_annotation.ipynb` | How the dataset was built, in the first person: source choice, the pre-screen, stack merging, OCR as a reject-only filter, deduplication, triage, the schema and annotation rules, the evaluator, labeling results and reject reasons, and the final dataset with figures. |
+| `02_inference_pipeline.ipynb` | How the inference pipeline works, in the first person: the shared prompt and both conditions, the answer schema, guided decoding, caching and determinism, the image policy and token estimates, hardware choice and cost, the run commands, and scoring (incl. the cluster bootstrap) demonstrated on synthetic answers. |
 | `figures/` | SVG diagrams used by `00_concepts.ipynb` (VLM architecture, inference pipeline). |
 
 ---

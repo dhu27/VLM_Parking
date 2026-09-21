@@ -17,7 +17,7 @@ cp .env.example .env   # then add your MAPILLARY_TOKEN
 uv run python scripts/phase0_probe.py
 ```
 
-Then review the sample in [notebooks/01_phase0_go_no_go.ipynb](notebooks/01_phase0_go_no_go.ipynb).
+Then review the sample in `scripts/phase0_survey.py` / `scripts/phase0_probe.py`.
 
 Results: *pending*
 
