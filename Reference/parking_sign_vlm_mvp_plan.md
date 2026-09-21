@@ -162,7 +162,8 @@ Areas: Hollywood 108, Koreatown 67, Venice/Mar Vista 52, Downtown 30, Westwood 1
 `src/vlm_parking/prompts.py` + `scripts/run_inference.py`:
 - **One prompt** for both conditions; only the sign representation differs (image vs. rendered transcription). No LA-convention primer.
 - **Answer schema** `reason` → `governing_panel` → `verdict`, enforced by guided JSON decoding.
-- **temperature 0**, fixed seed, `max_tokens 200`.
+- **temperature 0**, fixed seed, `max_tokens 512`, `reason` capped at 1000 characters, free whitespace forbidden in the grammar.
+  *Changed after the smoke test (2026-09-21).* At `max_tokens 200` with `reason` capped at 300 characters, 4 of 20 Qwen3-VL answers (condition B) failed to parse. Guided decoding was binding correctly; the failure was an interaction. The 300-character cap force-closed long reasons mid-sentence, and JSON's unlimited inter-token whitespace then let the model, now in a state it never saw in training, loop on whitespace until it hit `max_tokens`. Raising `max_tokens` alone would not have fixed it, since the loop is unbounded. It also mattered for validity, not just parsing: the long reasoners are the multi-panel signs, so a tight cap would cut their reasoning short before the verdict and confound the panel-count axis. Whether the backend accepted the whitespace lock is recorded per row as `grammar_whitespace`.
 - **Fixed image policy:** longest side ≤1024 px, JPEG q95, no upscaling; the image goes first in the prompt so vLLM's prefix cache is reused across a sign's ~15 queries.
 - **Caching:** every response keyed on (model, condition, image/sign hash, prompt, sampling params) in SQLite; results stream to JSONL. Re-runs resume for free.
 - **`--dry-run`** builds every prompt with no GPU.

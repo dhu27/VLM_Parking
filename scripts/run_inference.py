@@ -117,7 +117,7 @@ def main() -> None:
     ap.add_argument("--version", default="v1")
     ap.add_argument("--limit", type=int, help="first N queries (smoke test)")
     ap.add_argument("--max-side", type=int, default=1024, help="longest image side in pixels (condition A)")
-    ap.add_argument("--max-tokens", type=int, default=200)
+    ap.add_argument("--max-tokens", type=int, default=512, help="headroom above the 1000-char reason cap (~250 tokens)")
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--max-model-len", type=int, default=8192)
@@ -191,14 +191,25 @@ def main() -> None:
             f"Re-run under the pinned version (requirements-gpu.txt), delete those rows, "
             f"or pass --allow-mixed-engine if you accept mixing them.")
 
-    try:  # the structured-output API was renamed between vLLM versions [VERIFY]
-        from vllm.sampling_params import GuidedDecodingParams
+    try:  # the structured-output API was renamed between vLLM versions; 0.29.0 has only the new name
+        from vllm.sampling_params import StructuredOutputsParams as Spec
 
-        structured = {"guided_decoding": GuidedDecodingParams(json=schema)}
+        kwarg = "structured_outputs"
     except ImportError:
-        from vllm.sampling_params import StructuredOutputsParams
+        from vllm.sampling_params import GuidedDecodingParams as Spec
 
-        structured = {"structured_outputs": StructuredOutputsParams(json=schema)}
+        kwarg = "guided_decoding"
+
+    # JSON permits unlimited whitespace between tokens. When a string is force-closed at its maxLength, the
+    # model can loop on whitespace until max_tokens instead of emitting the next key: 4 of 20 smoke-test
+    # answers died this way. Forbid it where the backend allows, and record whether it did.
+    try:
+        structured = {kwarg: Spec(json=schema, disable_any_whitespace=True)}
+        prov["grammar_whitespace"] = "locked"
+    except TypeError:
+        structured = {kwarg: Spec(json=schema)}
+        prov["grammar_whitespace"] = "free"
+        print("  [warn] this vLLM can't disable grammar whitespace; relying on the reason-length headroom")
 
     llm = LLM(model=model_id, dtype="bfloat16", max_model_len=args.max_model_len,
               gpu_memory_utilization=args.gpu_memory_utilization, trust_remote_code=True, revision=args.revision,

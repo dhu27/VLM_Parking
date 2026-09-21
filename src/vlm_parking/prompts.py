@@ -24,7 +24,10 @@ DAY_NAMES = {"MON": "Monday", "TUE": "Tuesday", "WED": "Wednesday", "THU": "Thur
 class Answer(BaseModel):
     """The response schema for guided JSON decoding."""
 
-    reason: str = Field(max_length=300, description="One or two sentences: which posted rule decides this.")
+    # The cap is generous on purpose. At 300 the smoke test force-closed 4 of 20 reasons mid-sentence, and the
+    # longest reasoners are the multi-panel signs: a tight cap would cut their reasoning short before the
+    # verdict, confounding the panel-count axis the study reports. 1000 chars is ~250 tokens.
+    reason: str = Field(max_length=1000, description="One or two sentences: which posted rule decides this.")
     governing_panel: int | None = Field(description="0-based index from the top of the sign of the panel that decides it; null if parking is legal.")
     verdict: Literal["legal", "illegal"] = Field(description="Is parking legal for the whole stay?")
 
