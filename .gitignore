@@ -60,8 +60,14 @@ data/collect/sheets/
 # OCR audit cache: regenerable with scripts/audit_labels.py --reocr
 data/labels/ocr_cache.json
 
-# Model outputs are large and regenerable from the cache
-data/runs/
+# Model outputs. The answers themselves are tracked: regenerating them means renting a GPU, and at
+# 3-5 MB per run they're small. Ignore the directory's *contents*, not the directory, or git can't
+# re-include anything inside it; the negation must also come after the global *.jsonl rule above.
+# (A bracket class like *_[AB].jsonl failed to match here on macOS, so the dry-run previews are
+# re-ignored by name instead.) cache.sqlite stays ignored (*.sqlite): same answers, keyed for resuming.
+data/runs/*
+!data/runs/*.jsonl
+data/runs/prompts_*
 
 # The query set is small and derived deterministically from the labels; keep it for reproducibility.
 # Negating the directory is not enough: *.parquet above still matches the files inside it, so the
