@@ -182,7 +182,7 @@ Areas: Hollywood 108, Koreatown 67, Venice/Mar Vista 52, Downtown 30, Westwood 1
 
 - Parse failure rate < 1% (guided decoding should make it ~0).
 - Same `--max-side` for every model; if memory forces a change, change it everywhere and re-run.
-- Record vLLM version, model revision, GPU type with the results.
+- Record vLLM version, model revision, GPU type with the results. **Done automatically:** `run_inference.py` resolves all three at startup, writes them into every JSONL row and into `data/runs/manifest.jsonl` (one line per invocation), and refuses to resume a run whose cached answers came from a different vLLM version unless `--allow-mixed-engine` is passed. The engine is pinned in `requirements-gpu.txt` (vLLM 0.29.0); `--revision` pins a model to one commit sha.
 
 ---
 

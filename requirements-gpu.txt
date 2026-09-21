@@ -1,0 +1,34 @@
+# GPU-only dependencies, installed on the rented pod. Deliberately not in pyproject.toml: the laptop
+# has no CUDA, and `uv sync` there must keep working.
+#
+# NOTE ON THE NAMES: vLLM is the inference *engine* (the library that loads weights and generates);
+# a VLM is a vision-language *model*. This file pins the engine. The three VLMs under test
+# (Qwen3-VL-8B, InternVL3.5-8B, MiniCPM-V-4.5) are pinned separately, by Hugging Face commit sha,
+# with run_inference.py's --revision flag.
+#
+#   pip install -r requirements-gpu.txt
+#
+# Pinned so a re-run weeks later uses the same engine. This matters more than it looks:
+#   - "temperature 0, fixed seed" only reproduces within one vLLM version; kernels and batching
+#     change between releases and greedy decoding can diverge at near-ties.
+#   - the structured-output API was renamed (GuidedDecodingParams -> StructuredOutputsParams), and
+#     run_inference.py accepts either, so a version change would NOT announce itself.
+#   - image preprocessing (tiling, token counts) is version-dependent, and condition A is the image
+#     path - the thing the study actually measures.
+#
+# run_inference.py records the resolved vLLM version, model commit sha and GPU in every result row
+# and in data/runs/manifest.jsonl, and refuses to resume a run whose cached rows came from a
+# different vLLM version unless --allow-mixed-engine is passed.
+#
+# After the first successful run on the pod, freeze what actually got installed and commit it:
+#   pip freeze > requirements-gpu.lock.txt
+#
+# 0.29.0 (released 2026-09-09) is simply the latest release: the newest engine is the likeliest to
+# handle Qwen3-VL, the most recently released of the three models. It is young and has no patch
+# release yet; 0.28.0 (2026-08-26) is the more settled fallback if the smoke test misbehaves.
+# Which version is far less important than using one version throughout - see the guard above.
+vllm==0.29.0
+
+# Used to resolve each model's commit sha for the provenance record. vLLM pulls it in already; named
+# here so the provenance path doesn't depend on that staying true.
+huggingface-hub

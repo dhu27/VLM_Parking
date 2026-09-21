@@ -19,6 +19,7 @@ import io
 import json
 import sqlite3
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -73,9 +74,33 @@ def cache_db() -> sqlite3.Connection:
         """CREATE TABLE IF NOT EXISTS responses (
              key TEXT PRIMARY KEY, model TEXT, condition TEXT, query_id TEXT, raw TEXT, answer_json TEXT,
              parse_ok INTEGER, prompt_tokens INTEGER, completion_tokens INTEGER, finish_reason TEXT,
-             seconds REAL, created_at TEXT)"""
+             seconds REAL, created_at TEXT, vllm_version TEXT, model_revision TEXT, gpu TEXT)"""
     )
+    have = {r[1] for r in con.execute("PRAGMA table_info(responses)")}
+    for col in ("vllm_version", "model_revision", "gpu"):  # caches written before provenance was recorded
+        if col not in have:
+            con.execute(f"ALTER TABLE responses ADD COLUMN {col} TEXT")
     return con
+
+
+def provenance(model_id: str, revision: str | None) -> dict[str, str]:
+    """What produced these answers. Unrecoverable once the pod is deleted, so it goes in every row.
+
+    The cache key deliberately does not include any of this: mixing engines is caught by the check in
+    main() instead, so an engine upgrade doesn't silently invalidate a paid-for cache.
+    """
+    import torch
+    import vllm
+
+    sha = revision or "unknown"
+    try:  # the id on its own is mutable; the commit sha is what someone else would have to check out
+        from huggingface_hub import model_info
+
+        sha = model_info(model_id, revision=revision).sha
+    except Exception as err:  # offline, gated repo, or hub API change - the run is still valid
+        print(f"  [warn] could not resolve the revision of {model_id}: {err}")
+    return {"vllm_version": vllm.__version__, "model_revision": sha,
+            "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"}
 
 
 def parse_answer(text: str) -> tuple[dict | None, bool]:
@@ -97,6 +122,9 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--max-model-len", type=int, default=8192)
     ap.add_argument("--gpu-memory-utilization", type=float, default=0.9)
+    ap.add_argument("--revision", help="pin the model to one HF commit sha (recorded either way)")
+    ap.add_argument("--allow-mixed-engine", action="store_true",
+                    help="resume a run whose cached rows came from a different vLLM version")
     ap.add_argument("--dry-run", action="store_true", help="build prompts and exit; no GPU, no model")
     args = ap.parse_args()
 
@@ -148,6 +176,21 @@ def main() -> None:
 
     from vllm import LLM, SamplingParams  # imported late: only needed on the GPU box
 
+    prov = provenance(model_id, args.revision)
+    print(f"vLLM {prov['vllm_version']} | {prov['gpu']} | {args.model} @ {prov['model_revision'][:12]}")
+
+    # Resuming under a different engine would append new answers beside old ones in one file, with
+    # nothing marking the boundary. Better to stop and let the human decide.
+    prior = {v for (v,) in con.execute(
+        "SELECT DISTINCT vllm_version FROM responses WHERE model = ? AND condition = ? AND vllm_version IS NOT NULL",
+        (model_id, args.condition))}
+    if prior - {prov["vllm_version"]} and not args.allow_mixed_engine:
+        raise SystemExit(
+            f"cached answers for {args.model} condition {args.condition} came from vLLM "
+            f"{', '.join(sorted(prior))}, but this is {prov['vllm_version']}.\n"
+            f"Re-run under the pinned version (requirements-gpu.txt), delete those rows, "
+            f"or pass --allow-mixed-engine if you accept mixing them.")
+
     try:  # the structured-output API was renamed between vLLM versions [VERIFY]
         from vllm.sampling_params import GuidedDecodingParams
 
@@ -158,7 +201,7 @@ def main() -> None:
         structured = {"structured_outputs": StructuredOutputsParams(json=schema)}
 
     llm = LLM(model=model_id, dtype="bfloat16", max_model_len=args.max_model_len,
-              gpu_memory_utilization=args.gpu_memory_utilization, trust_remote_code=True,
+              gpu_memory_utilization=args.gpu_memory_utilization, trust_remote_code=True, revision=args.revision,
               limit_mm_per_prompt={"image": 1} if args.condition == "A" else {"image": 0}, seed=args.seed)
     params = SamplingParams(temperature=args.temperature, max_tokens=args.max_tokens, **structured)
 
@@ -184,20 +227,34 @@ def main() -> None:
                 "query_id": r["query_id"], "sign_id": r["sign_id"], "model": args.model, "model_id": model_id,
                 "condition": args.condition, "answer": answer, "raw": text, "parse_ok": ok,
                 "prompt_tokens": len(out.prompt_token_ids), "completion_tokens": len(out.outputs[0].token_ids),
-                "finish_reason": out.outputs[0].finish_reason,
+                "finish_reason": out.outputs[0].finish_reason, **prov,
             }
             f.write(json.dumps(row) + "\n")
             con.execute(
-                "INSERT OR REPLACE INTO responses VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'))",
+                """INSERT OR REPLACE INTO responses
+                     (key, model, condition, query_id, raw, answer_json, parse_ok, prompt_tokens,
+                      completion_tokens, finish_reason, seconds, created_at, vllm_version, model_revision, gpu)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),?,?,?)""",
                 (r["key"], model_id, args.condition, r["query_id"], text, json.dumps(answer), ok,
-                 row["prompt_tokens"], row["completion_tokens"], row["finish_reason"], elapsed / max(1, len(todo))),
+                 row["prompt_tokens"], row["completion_tokens"], row["finish_reason"], elapsed / max(1, len(todo)),
+                 prov["vllm_version"], prov["model_revision"], prov["gpu"]),
             )
         con.commit()
 
     tokens = sum(len(o.prompt_token_ids) for o in outputs)
     print(f"ran {len(todo):,} in {elapsed / 60:.1f} min ({len(todo) / max(elapsed, 1e-9):.1f}/s) | "
           f"parse failures {n_fail} ({n_fail / max(1, len(todo)):.2%}) | mean prompt tokens {tokens / max(1, len(outputs)):.0f}")
-    print(f"appended to {out_path}")
+
+    # One line per invocation: what ran, under what, and how it went. The writeup's methods section.
+    with (RUNS / "manifest.jsonl").open("a") as f:
+        f.write(json.dumps({
+            "finished_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "model": args.model,
+            "model_id": model_id, "condition": args.condition, "version": args.version, "n_run": len(todo),
+            "n_cached": len(requests) - len(todo), "parse_failures": n_fail, "seconds": round(elapsed, 1),
+            "max_side": args.max_side, "max_tokens": args.max_tokens, "temperature": args.temperature,
+            "seed": args.seed, "max_model_len": args.max_model_len, **prov,
+        }) + "\n")
+    print(f"appended to {out_path} and {RUNS / 'manifest.jsonl'}")
 
 
 if __name__ == "__main__":
