@@ -15,7 +15,7 @@
 | 1 — collection | ✅ done | 104,230 images screened → 5,218 sign crops → 2,072 OCR-confirmed candidates |
 | 2 — schema, guide, evaluator | ✅ done | `schema.py`, `ANNOTATION_GUIDE.md`, `evaluator.py`, 37 evaluator tests |
 | 3 — labeling | ✅ done | 692 triaged accepts → **272 labeled signs**, 420 rejected (289 for unreadable fine print) |
-| 4 — query generation | ✅ done | **4,022 queries**, 43.4% legal |
+| 4 — query generation | ✅ done | **4,021 queries**, 44.1% legal |
 | 5 — inference | ⏳ next | Harness written and dry-run tested; needs a GPU |
 | 6 — analysis | ⏳ | Not started |
 | 7 — writeup and outreach | ⏳ | Not started |
@@ -31,7 +31,7 @@
 ### In scope (as built)
 
 - **272 LA signs** from Mapillary (target was 500), structured transcriptions, a rule evaluator
-- **4,022 (sign, query) examples** (target was ~7,500)
+- **4,021 (sign, query) examples** (target was ~7,500)
 - 3 models: Qwen3-VL-8B, InternVL3.5-8B, MiniCPM-V-4.5 **[VERIFY model ids and vLLM support]**
 - 2 conditions: **A** (sign crop + query) and **B** (ground-truth transcription + query)
 - Metrics: verdict accuracy stratified by panel count, rule attribution, bootstrap CIs over signs
@@ -120,7 +120,9 @@ Built `scripts/triage.py` (fast accept/reject of crops) and `scripts/label.py` (
 **Deviations from the original plan**
 - **No model-assisted pre-fill and no labeler-calibration gate.** Manual labeling turned out to take ~9 s per sign, so a frontier-model pre-fill would have saved little and would have put model output into the ground truth. Every label is `gold_manual`.
 - **The gold set is the first 100 signs** (stratified by detected panel count, seeded draw); 72 remain after the cohort rule. Everything after it was labeled the same way.
-- **Self-consistency re-label** (50 signs, blind, `--round 2`) is still to do, and now replaces inter-annotator agreement as the dataset's quality number.
+- **Self-consistency re-label** (50 signs, blind, `--round 2`) is still to do, and now replaces inter-annotator agreement as the dataset's quality number. Draw it *excluding* the signs on `data/labels/audit_worklist.csv`: re-labeling a sign just corrected would measure agreement with the correction, not consistency.
+- **`tow_away` is unannotated in v1** — `false` on all 272 signs, including the 57+ that print "TOW-AWAY". Not backfilled: the evaluator never reads the field, so nothing measured depends on it, and its uniform absence can't bias the A−B gap. Documented in ANNOTATION_GUIDE.md §3 and to be stated in the writeup.
+- **OCR label audit** (`scripts/audit_labels.py`, local, CPU). Compares the words RapidOCR reads off each crop against the rules in the label. Found 16 signs (231 queries, 5.7%) where the sign says NO STOPPING but the label carries only `no_parking`; several also drop the no-stopping panels entirely. Verdicts are unaffected (both rules are in `PROHIBITIONS`) but `SEVERITY` differs, so `governing_panel` can change on the 15 queries where two panels are in play. Corrections go through `scripts/label.py --only`. Checks for day exceptions, time limits and times were tried and dropped as pure OCR noise; the script's docstring records why, so they don't get re-added.
 
 **Dataset as built**
 
@@ -149,7 +151,7 @@ Areas: Hollywood 108, Koreatown 67, Venice/Mar Vista 52, Downtown 30, Westwood 1
 | permit | same stay with/without the sign's district permit changes the answer | 26 (13 signs) |
 | permit_irrelevant | same stay with/without a permit the sign doesn't mention; the answer must not change | 820 |
 
-**4,022 queries, 43.4% legal** (majority-class baseline 56.6%). Only 13 signs post a permit district, so the permit-distractor type was added to keep 15 queries per sign and to probe models inventing exemptions.
+**4,021 queries, 44.1% legal** (majority-class baseline 55.9%). Only 13 signs post a permit district, so the permit-distractor type was added to keep 15 queries per sign and to probe models inventing exemptions.
 
 ---
 
@@ -189,7 +191,7 @@ Areas: Hollywood 108, Koreatown 67, Venice/Mar Vista 52, Downtown 30, Westwood 1
 - **Metrics:** verdict accuracy overall and by panel count (1 / 2 / 3+), query type, area, sign size, capture year; rule attribution (right verdict, wrong governing panel); parse failure rate.
 - **A−B gap** per model: the perception cost, the headline number.
 - **Permit distractors:** does mentioning an irrelevant permit change the verdict? (It must not.)
-- **Statistics:** bootstrap 95% CIs **resampling over signs**, not queries; report n per stratum; suppress cells with n < 20; report the base rate (43.4% legal).
+- **Statistics:** bootstrap 95% CIs **resampling over signs**, not queries; report n per stratum; suppress cells with n < 20; report the base rate (44.1% legal).
 - **Main figure:** x = panel count, y = accuracy, two lines per model (A solid, B dashed), error bars. The vertical gap is the result.
 - **Error review:** 50 condition-A failures tagged by hand (misread digit, AM/PM flip, dropped panel, wrong day range, boundary error, ignored exception, hallucinated rule, invented permit exemption).
 

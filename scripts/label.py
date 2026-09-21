@@ -3,6 +3,7 @@
     uv run python scripts/label.py                 # every triage-accepted sign, by hand, blind (the default)
     uv run python scripts/label.py --set assisted  # (unused) pre-filled from data/labels/prefill/<id>.json
     uv run python scripts/label.py --round 2       # blind re-label for self-consistency (hides round 1)
+    uv run python scripts/label.py --only data/labels/audit_worklist.csv   # correction pass over flagged signs
 
 Then open http://localhost:8766. Follow ANNOTATION_GUIDE.md.
 
@@ -89,8 +90,25 @@ def queue() -> pd.DataFrame:
     rest = rest.sort_values(["_p", "n_panels_detected", "height_native", "candidate_id"], ascending=[False, False, False, True])
     ordered = pd.concat([acc.set_index("candidate_id").loc[gold_ids].reset_index(), rest.drop(columns="_p")])
     if ARGS.set == "assisted":  # kept for completeness; not used (all labeling is manual)
-        return ordered[~ordered.candidate_id.isin(gold_ids)].reset_index(drop=True)
+        ordered = ordered[~ordered.candidate_id.isin(gold_ids)]
+    if ARGS.only:  # a correction pass: work the listed signs, in the file's order
+        wanted = [c for c in only_ids() if c in set(ordered.candidate_id)]
+        ordered = ordered.set_index("candidate_id").loc[wanted].reset_index()
     return ordered.reset_index(drop=True)
+
+
+def only_ids() -> list[str]:
+    """Ids from --only: a CSV with a sign_id/candidate_id column, or one id per line."""
+    path = Path(ARGS.only)
+    if path.suffix.lower() == ".csv":
+        df = pd.read_csv(path)
+        col = next((c for c in ("sign_id", "candidate_id") if c in df.columns), None)
+        if col is None:
+            raise SystemExit(f"{path}: expected a sign_id or candidate_id column, got {list(df.columns)}")
+        ids = df[col].tolist()
+    else:
+        ids = [ln.strip() for ln in path.read_text().splitlines() if ln.strip()]
+    return list(dict.fromkeys(ids))  # de-dupe, keep order (one sign can carry several flags)
 
 
 def db() -> sqlite3.Connection:
@@ -381,7 +399,7 @@ async function post(url, body) {
 }
 function nextUndone() {
   for (let k = 1; k <= items.length; k++) { const j = (idx + k) % items.length; if (!done[items[j].candidate_id]) return j; }
-  return idx;
+  return idx + 1;  // correction pass (--only): every sign is already labeled, so step forward instead of re-showing this one
 }
 async function save() {
   const it = items[idx], r = await post('/api/save', {candidate_id: it.candidate_id, sign: formSign(), seconds: seconds()});
@@ -515,9 +533,13 @@ def main() -> None:
     ap.add_argument("--set", choices=["gold", "assisted"], default="gold")
     ap.add_argument("--round", type=int, default=1)
     ap.add_argument("--port", type=int, default=8766)
+    ap.add_argument("--only", help="restrict the queue to the sign ids in this CSV/txt (a correction pass)")
     ARGS = ap.parse_args()
     gold = ensure_gold_set()
     print(f"Gold set: {len(gold)} signs ({gold.stratum.value_counts().to_dict()}) in {GOLD}")
+    if ARGS.only:
+        n = len(queue())
+        print(f"--only {ARGS.only}: {n} of {len(only_ids())} listed signs are in the accepted cohort")
     print(f"Labeling ({ARGS.set}, round {ARGS.round}) at http://localhost:{ARGS.port}  (Ctrl-C to stop; saved to {DB})")
     ThreadingHTTPServer(("127.0.0.1", ARGS.port), Handler).serve_forever()
 

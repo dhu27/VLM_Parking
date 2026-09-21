@@ -81,7 +81,7 @@ When in doubt about legibility, reject. The dataset's scope is signs a careful h
 ### `except_holidays`, `tow_away`
 
 - `except_holidays: true` if the panel says holidays are excepted. Don't list dates.
-- `tow_away: true` if the tow-away warning belongs to that panel ("TOW-AWAY NO STOPPING 7–9AM"). It's a flag on that panel, **not** a separate panel. Set it when "TOW-AWAY" is printed **or** the plate carries the tow-truck graphic; an "ANTI-GRIDLOCK ZONE" header alone doesn't count. When one plate is split into several panels, give each of them the flag.
+- `tow_away` is **unannotated in v1**: it is `false` on all 272 signs, including the 57+ that print "TOW-AWAY". Treat the field as absent, not as "no sign was tow-away". It was left unset throughout labeling and backfilling it would change nothing that is measured: the evaluator never reads it, so no verdict, `governing_panel` or query depends on it. Its only effect is one clause in condition B's rendered text (`prompts.py`), and since it is uniformly absent it cannot bias the A−B gap. The rule it *would* follow, if v2 annotates it: set it when "TOW-AWAY" is printed **or** the plate carries the tow-truck graphic (an "ANTI-GRIDLOCK ZONE" header alone doesn't count); it's a flag on the panel it belongs to, **not** a separate panel, and when one plate is split into several panels each gets the flag.
 - **Column headers decide days.** If a plate's columns are labelled (e.g. "MON–FRI" / "SAT–SUN") and the labels can't be read, reject the sign as `illegible_fine_print`. Don't infer the days.
 
 ---
@@ -112,6 +112,7 @@ ANTI-GRIDLOCK ZONE  TOW-AWAY NO STOPPING 7AM–9AM 4PM–7PM MON–FRI
   {"order": 2, "rule": "time_limited", "days": ["MON","TUE","WED","THU","FRI","SAT"], "start": "09:00", "end": "16:00", "limit_min": 60}
 ]
 ```
+The `tow_away: true` above is what the rule *would* produce; in the v1 data the flag is `false` everywhere (see `tow_away` under §3). The rest of this example matches v1.
 
 **Two no-stopping windows + a two-column time limit**
 ```

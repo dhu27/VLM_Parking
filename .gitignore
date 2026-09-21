@@ -57,6 +57,9 @@ data/collect/sheets/
 # Labels are hand work: always track them
 !data/labels/labels.sqlite
 
+# OCR audit cache: regenerable with scripts/audit_labels.py --reocr
+data/labels/ocr_cache.json
+
 # Model outputs are large and regenerable from the cache
 data/runs/
 
