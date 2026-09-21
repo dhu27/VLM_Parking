@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 MODELS = ["qwen3-vl-8b", "internvl3_5-8b", "minicpm-v-4_5"]
+THINKING = "qwen3-vl-8b-thinking"  # phase 5b: sampled, so its runs are per seed (`{model}_{cond}_s{seed}.jsonl`)
 CONDITIONS = ["A", "B"]  # A: the sign crop. B: the ground-truth transcription as text.
 MIN_SIGNS = 20  # plan §8: report n per stratum, blank the estimate below this many signs
 N_BOOT = 2000
@@ -23,22 +24,27 @@ SEED = 0
 # --- scoring ----------------------------------------------------------------------------------------
 
 
-def load_scored(runs: Path, queries: pd.DataFrame, signs: pd.DataFrame) -> pd.DataFrame:
+def load_scored(runs: Path, queries: pd.DataFrame, signs: pd.DataFrame, models: list[str] = MODELS,
+                seed: int | None = None) -> pd.DataFrame:
     """One row per (model, condition, query), joined to the query's gold answer and its sign's attributes.
 
+    `seed` selects a sampled run (`{model}_{cond}_s{seed}.jsonl`); the original greedy runs have no seed suffix.
     A parse failure scores as incorrect, never dropped: dropping would quietly remove a model's hardest cases
     from its own denominator.
     """
+    suffix = "" if seed is None else f"_s{seed}"
     rows = []
-    for model in MODELS:
+    for model in models:
         for cond in CONDITIONS:
-            for line in (runs / f"{model}_{cond}.jsonl").open():
+            for line in (runs / f"{model}_{cond}{suffix}.jsonl").open():
                 r = json.loads(line)
                 a = r["answer"] or {}
                 rows.append({"model": model, "condition": cond, "query_id": r["query_id"],
                              "pred": a.get("verdict"), "pred_panel": a.get("governing_panel"),
                              "pred_reason": a.get("reason"), "parse_ok": r["parse_ok"],
-                             "prompt_tokens": r["prompt_tokens"]})
+                             "prompt_tokens": r["prompt_tokens"],
+                             "thinking_tokens": r.get("thinking_tokens"),
+                             "finished_thinking": r.get("finished_thinking")})
     d = pd.DataFrame(rows)
 
     # Results must cover exactly the current query set. A mismatch means the runs predate a regeneration of

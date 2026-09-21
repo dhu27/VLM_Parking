@@ -18,7 +18,8 @@ from matplotlib.ticker import PercentFormatter
 
 from vlm_parking.analysis import CONDITIONS, MODELS
 
-NAMES = {"qwen3-vl-8b": "Qwen3-VL-8B", "internvl3_5-8b": "InternVL3.5-8B", "minicpm-v-4_5": "MiniCPM-V-4.5"}
+NAMES = {"qwen3-vl-8b": "Qwen3-VL-8B", "internvl3_5-8b": "InternVL3.5-8B", "minicpm-v-4_5": "MiniCPM-V-4.5",
+         "qwen3-vl-8b-thinking": "Qwen3-VL-8B-Thinking"}
 COND_NAMES = {"A": "A · sign image", "B": "B · text transcription"}
 STRATA = ["1", "2", "3+"]
 
