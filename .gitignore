@@ -63,5 +63,8 @@ data/labels/ocr_cache.json
 # Model outputs are large and regenerable from the cache
 data/runs/
 
-# The query set is small and derived deterministically from the labels; keep it for reproducibility
+# The query set is small and derived deterministically from the labels; keep it for reproducibility.
+# Negating the directory is not enough: *.parquet above still matches the files inside it, so the
+# files themselves have to be un-ignored by name.
 !data/queries/
+!data/queries/*.parquet
