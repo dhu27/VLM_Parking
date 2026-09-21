@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from vlm_parking.analysis import (MIN_SIGNS, accuracy_table, paired_gap, perception_decomposition,
-                                  permit_distractor, ratio_ci, share)
+from vlm_parking.analysis import (MIN_SIGNS, accuracy_table, check_tags, paired_gap, perception_decomposition,
+                                  permit_distractor, ratio_ci, share, tag_families)
 
 
 def rows(sign_id: str, n: int, correct: bool, **kw) -> list[dict]:
@@ -82,6 +82,17 @@ def test_decomposition_blanks_small_strata():
     b = {f"s{i}": True for i in range(MIN_SIGNS - 1)}
     r = perception_decomposition(conditions(b, b)).iloc[0]
     assert np.isnan(r.p_loss) and r.n_signs == MIN_SIGNS - 1
+
+
+def test_tags_are_validated_against_the_taxonomy():
+    ok = pd.DataFrame({"model": ["m"] * 2, "sign_id": ["a", "b"], "family": ["perception", "reasoning"],
+                       "tag": ["misread day", "time comparison"], "tag2": ["", ""]})
+    fam = tag_families(ok, n_boot=50).set_index(["model", "family"])
+    assert fam.loc[("all", "perception"), "n"] == 1 and fam.loc[("all", "perception"), "of"] == 2
+    with pytest.raises(ValueError, match="not 'reasoning'"):  # a tag filed under the wrong family
+        check_tags(ok.assign(family=["reasoning", "reasoning"]))
+    with pytest.raises(ValueError, match="misreed"):  # a typo made while reviewing
+        check_tags(ok.assign(tag=["misreed day", "time comparison"]))
 
 
 def test_permit_distractor_detects_an_invented_exemption():

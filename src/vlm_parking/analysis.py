@@ -254,10 +254,47 @@ def parse_failures(d: pd.DataFrame) -> pd.DataFrame:
 
 # --- the hand-tagging sample -------------------------------------------------------------------------
 
-ERROR_TAGS = ["misread digit", "AM/PM flip", "dropped panel", "wrong day range", "boundary error",
-              "ignored exception", "hallucinated rule", "invented permit exemption",
-              # seen in the smoke test, not in the plan's list
-              "minute-carry arithmetic", "arrival-only reasoning", "other"]
+# Grown from the plan's list while tagging the first 50 failures (data/labels/error_tags.csv). The family is the
+# question that matters for the study: did the model misread the sign, misunderstand what it means, or read and
+# understand it and then reason badly? Only the first is perception in the narrow sense.
+ERROR_TAXONOMY = {
+    "perception": ["misread digit", "misread day", "AM/PM flip", "wrong day range", "dropped panel",
+                   "merged panels", "missed exception", "hallucinated rule"],
+    # read correctly, misunderstood: "default-deny" treats any time no panel covers as prohibited
+    "interpretation": ["default-deny", "exemption inverted"],
+    "reasoning": ["time comparison", "boundary error", "arrival-only reasoning", "day-only reasoning",
+                  "ignored time limit", "ignored panel", "minute-carry arithmetic", "invented permit exemption",
+                  "other reasoning"],
+    "ambiguous": ["ambiguous legibility"],  # can't tell from the image whether the model or the label is right
+}
+FAMILIES = list(ERROR_TAXONOMY)
+ERROR_TAGS = [tag for tags in ERROR_TAXONOMY.values() for tag in tags]
+FAMILY_OF = {tag: fam for fam, tags in ERROR_TAXONOMY.items() for tag in tags}
+
+
+def check_tags(tags: pd.DataFrame) -> None:
+    """Fail loudly on an unknown tag or a family that doesn't match its tag, e.g. a typo made while reviewing."""
+    bad = [f"row {i}: tag {r.tag!r}" for i, r in tags.iterrows() if r.tag not in FAMILY_OF]
+    bad += [f"row {i}: secondary {r.tag2!r}" for i, r in tags.iterrows() if r.tag2 and r.tag2 not in FAMILY_OF]
+    bad += [f"row {i}: {r.tag!r} is {FAMILY_OF[r.tag]}, not {r.family!r}" for i, r in tags.iterrows()
+            if r.tag in FAMILY_OF and FAMILY_OF[r.tag] != r.family]
+    if bad:
+        raise ValueError("error_tags.csv: " + "; ".join(bad))
+
+
+def tag_families(tags: pd.DataFrame, n_boot: int = N_BOOT, seed: int = SEED) -> pd.DataFrame:
+    """Share of the tagged failures in each family, overall and per model, with a sign-bootstrap interval.
+
+    Per model there are only ~17 failures, so those intervals are wide; read the overall row.
+    """
+    check_tags(tags)
+    out = []
+    for model, g in [("all", tags)] + list(tags.groupby("model")):
+        for fam in FAMILIES:
+            s = share(g.assign(hit=g.family.eq(fam)), "hit", n_boot, seed)
+            out.append({"model": model, "family": fam, "n": int(g.family.eq(fam).sum()), "of": len(g),
+                        "est": s["est"], "lo": s["lo"], "hi": s["hi"]})
+    return pd.DataFrame(out)
 
 
 def error_review_sample(d: pd.DataFrame, n: int = 50, seed: int = SEED) -> pd.DataFrame:
@@ -278,8 +315,8 @@ def error_review_sample(d: pd.DataFrame, n: int = 50, seed: int = SEED) -> pd.Da
                      + s.permit_district.map(lambda x: f", permit {x}" if isinstance(x, str) else ""))
     s = s.rename(columns={"verdict": "gold", "reason": "gold_reason", "pred": "model_verdict",
                           "pred_reason": "reason_on_image"})
-    s["tag"], s["notes"] = "", ""
+    s["family"], s["tag"], s["tag2"], s["notes"] = "", "", "", ""
     s["crop"] = "data/collect/" + s.crop_path
     cols = ["model", "sign_id", "query_id", "panels", "question", "gold", "model_verdict", "gold_reason",
-            "reason_on_image", "reason_on_text", "crop", "tag", "notes"]
+            "reason_on_image", "reason_on_text", "crop", "family", "tag", "tag2", "notes"]
     return s[cols].sort_values(["model", "sign_id"]).reset_index(drop=True)

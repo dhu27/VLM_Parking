@@ -137,7 +137,7 @@ def perception_loss_by_panels(decomp: pd.DataFrame) -> Figure:
     axes[0].yaxis.set_major_formatter(PercentFormatter(1.0, decimals=0))
     axes[0].set_ylabel("Wrong on the image", color=INK2)
     axes[1].set_xlabel("Panels on the sign", color=INK2)
-    _frame(fig, "Perception loss: queries answered right from the text, then wrong from the image",
+    _frame(fig, "Lost on the image: queries answered right from the text, then wrong from the image",
            "Share of each model's text-correct queries it gets wrong from the sign image. "
            "Error bars: 95% interval, resampling signs.")
     return fig

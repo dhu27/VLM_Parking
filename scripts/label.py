@@ -4,6 +4,7 @@
     uv run python scripts/label.py --set assisted  # (unused) pre-filled from data/labels/prefill/<id>.json
     uv run python scripts/label.py --round 2       # blind re-label for self-consistency (hides round 1)
     uv run python scripts/label.py --only data/labels/audit_worklist.csv   # correction pass over flagged signs
+    uv run python scripts/label.py --only data/queries/signs_v1.parquet --read-only   # browse the dataset
 
 Then open http://localhost:8766. Follow ANNOTATION_GUIDE.md.
 
@@ -98,10 +99,14 @@ def queue() -> pd.DataFrame:
 
 
 def only_ids() -> list[str]:
-    """Ids from --only: a CSV with a sign_id/candidate_id column, or one id per line."""
+    """Ids from --only: a CSV or parquet with a sign_id/candidate_id column, or one id per line.
+
+    Parquet lets the dataset of record drive the queue directly (--only data/queries/signs_v1.parquet),
+    rather than a copied list that can go stale.
+    """
     path = Path(ARGS.only)
-    if path.suffix.lower() == ".csv":
-        df = pd.read_csv(path)
+    if path.suffix.lower() in (".csv", ".parquet"):
+        df = pd.read_parquet(path) if path.suffix.lower() == ".parquet" else pd.read_csv(path)
         col = next((c for c in ("sign_id", "candidate_id") if c in df.columns), None)
         if col is None:
             raise SystemExit(f"{path}: expected a sign_id or candidate_id column, got {list(df.columns)}")
@@ -450,7 +455,7 @@ document.addEventListener('keydown', e => {
 (async () => {
   const s = await (await fetch('/api/state')).json();
   items = s.items; done = s.done;
-  $('#setinfo').textContent = `${s.set === 'gold' ? 'all accepted signs · manual, blind' : 'assisted (pre-filled)'} · round ${s.round}`;
+  $('#setinfo').textContent = `${s.set === 'gold' ? 'all accepted signs · manual, blind' : 'assisted (pre-filled)'} · round ${s.round}${s.read_only ? ' · READ-ONLY, browsing' : ''}`;
   const first = items.findIndex(it => !done[it.candidate_id]);
   show(first === -1 ? 0 : first);
 })();
@@ -489,7 +494,8 @@ class Handler(SimpleHTTPRequestHandler):
                  "area": r.area, "n_panels_detected": int(r.n_panels_detected), "prefill": prefill(r.candidate_id)}
                 for r in q.itertuples()
             ]
-            self._json({"set": ARGS.set, "round": ARGS.round, "items": items, "done": saved_labels()})
+            self._json({"set": ARGS.set, "round": ARGS.round, "read_only": ARGS.read_only, "items": items,
+                        "done": saved_labels()})
         elif self.path.startswith("/crops/"):
             super().do_GET()
         else:
@@ -498,6 +504,9 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         cid = body.get("candidate_id")
+        if ARGS.read_only and self.path in ("/api/save", "/api/reject"):  # browsing must never change a label
+            self._json({"ok": False, "errors": ["read-only: restart without --read-only to edit labels"]})
+            return
         try:
             if self.path == "/api/save":
                 sign = build_sign(cid, body["sign"])
@@ -533,7 +542,8 @@ def main() -> None:
     ap.add_argument("--set", choices=["gold", "assisted"], default="gold")
     ap.add_argument("--round", type=int, default=1)
     ap.add_argument("--port", type=int, default=8766)
-    ap.add_argument("--only", help="restrict the queue to the sign ids in this CSV/txt (a correction pass)")
+    ap.add_argument("--only", help="restrict the queue to the sign ids in this CSV/parquet/txt (a correction pass)")
+    ap.add_argument("--read-only", action="store_true", help="browse without saving or rejecting anything")
     ARGS = ap.parse_args()
     gold = ensure_gold_set()
     print(f"Gold set: {len(gold)} signs ({gold.stratum.value_counts().to_dict()}) in {GOLD}")

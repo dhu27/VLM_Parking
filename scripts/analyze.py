@@ -163,9 +163,10 @@ def main() -> None:
         "## Parse failures", "", md(fail_md), "",
         "## Hand-tagging sample", "",
         f"`error_review_sample.csv`: {len(sample)} condition-A failures where the **same model was right on the "
-        "text**, so the error is in reading the sign. Tag each with one of: "
-        + ", ".join(f"`{t}`" for t in an.ERROR_TAGS) + ". The two before `other` came from the smoke test "
-        "and are not in the plan's list.", "",
+        "text**. This file is regenerated on every run; the tags live in `data/labels/error_tags.csv`. Each "
+        "failure gets one tag, in one of four families: "
+        + "; ".join(f"**{fam}**: " + ", ".join(f"`{t}`" for t in tags) for fam, tags in an.ERROR_TAXONOMY.items())
+        + ".", "",
     ]
     (OUT / "summary.md").write_text("\n".join(body))
     print(f"\n{md(head)}\n\n{md(decomp_md)}\n\nwrote {OUT}/")
