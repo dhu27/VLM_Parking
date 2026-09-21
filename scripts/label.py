@@ -212,6 +212,7 @@ PAGE = r"""<!doctype html>
       <button class="danger" id="reject">Reject (r)</button>
     </div>
     <div id="errors"></div>
+    <div id="saved" class="kbd"></div>
 
     <div class="card"><h4>Check a query against this form <span class="kbd">evaluator, unsaved state</span></h4>
       <div class="row">
@@ -303,12 +304,15 @@ function retitle() { document.querySelectorAll('.panel').forEach((el, i) => el.q
 
 function formSign() {
   const panels = [...document.querySelectorAll('.panel')].map((el, i) => {
-    const allday = el.querySelector('.allday').checked, lim = el.querySelector('.limit').value.trim(), dist = el.querySelector('.district').value.trim();
+    const startRaw = el.querySelector('.start').value.trim(), endRaw = el.querySelector('.end').value.trim();
+    let allday = el.querySelector('.allday').checked;
+    if (allday && startRaw && endRaw) { allday = false; el.querySelector('.allday').checked = false; }  // typed times win
+    const lim = el.querySelector('.limit').value.trim(), dist = el.querySelector('.district').value.trim();
     return {
       order: i, rule: el.querySelector('.rule').value,
       days: [...el.querySelectorAll('.days [data-day].on')].map(b => b.dataset.day),
-      start: allday ? null : (normTime(el.querySelector('.start').value, false) || null),
-      end: allday ? null : (normTime(el.querySelector('.end').value, true) || null),
+      start: allday ? null : (normTime(startRaw, false) || null),
+      end: allday ? null : (normTime(endRaw, true) || null),
       limit_min: parseLimit(lim), district: dist || null,
       except_holidays: el.querySelector('.holidays').checked, tow_away: el.querySelector('.tow').checked,
     };
@@ -336,7 +340,13 @@ async function show(i) {
   fillForm(saved?.sign || it.prefill || null);
   const st = saved ? saved.status : 'unlabeled';
   $('#status').textContent = st; $('#status').className = 'status ' + st;
-  progress(); t0 = Date.now(); elapsed = 0;
+  progress(); describeSaved(); t0 = Date.now(); elapsed = 0;
+}
+let lastSaved = null;
+function describeSaved() {
+  if (!lastSaved) { $('#saved').textContent = ''; return; }
+  const bits = lastSaved.sign.panels.map(p => `${p.rule} ${p.start ? p.start + '-' + p.end : 'all day'}${p.limit_min ? ' ' + p.limit_min + 'min' : ''}${p.district ? ' D' + p.district : ''}`);
+  $('#saved').textContent = `saved ${lastSaved.id.split('/')[1]}: ${bits.join(' · ')}`;
 }
 function progress() {
   const n = Object.values(done).length, rej = Object.values(done).filter(d => d.status === 'rejected').length;
@@ -376,7 +386,9 @@ function nextUndone() {
 async function save() {
   const it = items[idx], r = await post('/api/save', {candidate_id: it.candidate_id, sign: formSign(), seconds: seconds()});
   if (!r.ok) { showErrors($('#errors'), r.errors, 'Not saved:<br>'); return; }
-  done[it.candidate_id] = {status: 'labeled', sign: r.sign}; show(nextUndone());
+  done[it.candidate_id] = {status: 'labeled', sign: r.sign};
+  lastSaved = {id: it.candidate_id, sign: r.sign};
+  show(nextUndone());
 }
 async function reject() {
   const reason = $('#reason').value;
