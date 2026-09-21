@@ -60,6 +60,10 @@ data/collect/sheets/
 # OCR audit cache: regenerable with scripts/audit_labels.py --reocr
 data/labels/ocr_cache.json
 
+# Phase 6 tables and figures: regenerated in about a second by scripts/analyze.py from tracked data, and the
+# figures are embedded in notebooks/03_results.ipynb. Hand-tagged error sheets belong in data/labels/.
+reports/
+
 # Model outputs. The answers themselves are tracked: regenerating them means renting a GPU, and at
 # 3-5 MB per run they're small. Ignore the directory's *contents*, not the directory, or git can't
 # re-include anything inside it; the negation must also come after the global *.jsonl rule above.
